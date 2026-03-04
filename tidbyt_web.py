@@ -947,19 +947,24 @@ def save_raw_config():
         import traceback; traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-    # Persist to disk
+    # Persist to disk — try main path, then delete-and-recreate, then /tmp fallback
     config_path = tidbyt_display.config_path
-    try:
+    fallback_path = '/tmp/tidbyt_config.json'
+    for path in [config_path, fallback_path]:
         try:
-            with open(config_path, 'w') as f:
+            if os.path.exists(path):
+                os.remove(path)
+            with open(path, 'w') as f:
                 json.dump(new_config, f, indent=2)
-        except PermissionError:
-            os.remove(config_path)
-            with open(config_path, 'w') as f:
-                json.dump(new_config, f, indent=2)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": True, "warning": f"Applied but could not save to disk: {e}"})
+            if path != config_path:
+                tidbyt_display.config_path = path
+                return jsonify({"success": True, "warning":
+                    f"Config applied! Saved to {path} because {config_path} is not writable. "
+                    f"Fix with: sudo rm {config_path}"})
+            return jsonify({"success": True})
+        except Exception:
+            continue
+    return jsonify({"success": True, "warning": "Config applied but could not be saved to disk"})
 
 
 # ============================================================================

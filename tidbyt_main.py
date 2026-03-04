@@ -251,22 +251,23 @@ class TidbytDisplay:
                 app_entry.update(app.config.config)
             config["apps"][app.name.lower()] = app_entry
         
-        try:
-            with open(self.config_path, 'w') as f:
-                json.dump(config, f, indent=2)
-            print(f"Config saved to {self.config_path}")
-        except PermissionError:
-            # File may be owned by a different user (e.g. from a previous sudo run).
-            # Delete it and recreate so we own it.
+        fallback = '/tmp/tidbyt_config.json'
+        for path in [self.config_path, fallback]:
             try:
-                os.remove(self.config_path)
-                with open(self.config_path, 'w') as f:
+                if os.path.exists(path):
+                    os.remove(path)
+                with open(path, 'w') as f:
                     json.dump(config, f, indent=2)
-                print(f"Config saved to {self.config_path} (recreated after permission fix)")
-            except Exception as e2:
-                print(f"Warning: Could not save config: {e2}")
-        except Exception as e:
-            print(f"Warning: Could not save config: {e}")
+                if path != self.config_path:
+                    print(f"Config saved to fallback {path} ({self.config_path} not writable)")
+                    self.config_path = path
+                else:
+                    print(f"Config saved to {path}")
+                break
+            except Exception:
+                continue
+        else:
+            print("Warning: Could not save config to any location")
 
 
 # ============================================================================
