@@ -23,7 +23,9 @@ from tidbyt_apps import (
 class TidbytDisplay:
     """Main display controller"""
     
-    def __init__(self, config_path: str = "tidbyt_config.json"):
+    def __init__(self, config_path: str = None):
+        if config_path is None:
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tidbyt_config.json")
         """Initialize Tidbyt display"""
         self.config_path = config_path
         self.display = MatrixDisplay(MatrixConfig())
