@@ -242,10 +242,12 @@ class TidbytDisplay:
                 "priority": app.config.priority
             }
         
-        with open(self.config_path, 'w') as f:
-            json.dump(config, f, indent=2)
-        
-        print(f"Config saved to {self.config_path}")
+        try:
+            with open(self.config_path, 'w') as f:
+                json.dump(config, f, indent=2)
+            print(f"Config saved to {self.config_path}")
+        except Exception as e:
+            print(f"Warning: Could not save config: {e}")
 
 
 # ============================================================================

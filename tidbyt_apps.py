@@ -132,19 +132,19 @@ class WeatherApp(MatrixApp):
         except:
             title_font = data_font = ImageFont.load_default()
 
-        # Frame 1: Temperature
+        # Frame 1: Temperature (hold for ~3s at 2fps = 6 frames)
         img = Image.new('RGB', (64, 32), (0, 0, 10))
         draw = ImageDraw.Draw(img)
         draw.text((2, 2), "WEATHER", fill=(255, 200, 0), font=title_font)
         draw.text((8, 15), "72°F", fill=(100, 200, 255), font=data_font)
-        frames.append(img)
+        frames.extend([img] * 6)
 
-        # Frame 2: Condition
+        # Frame 2: Condition (hold for ~3s)
         img = Image.new('RGB', (64, 32), (0, 0, 10))
         draw = ImageDraw.Draw(img)
         draw.text((2, 2), "WEATHER", fill=(255, 200, 0), font=title_font)
         draw.text((2, 17), "Partly Cloudy", fill=(150, 150, 200), font=title_font)
-        frames.append(img)
+        frames.extend([img] * 6)
 
         return frames
     
@@ -186,7 +186,7 @@ class StockApp(MatrixApp):
             draw.text((2, 18), price, fill=(200, 200, 200), font=price_font)
             draw.text((36, 18), change, fill=color, font=price_font)
 
-            frames.append(img)
+            frames.extend([img] * 6)  # Hold each stock for ~3s at 2fps
         
         return frames
     

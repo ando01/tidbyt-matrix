@@ -485,8 +485,8 @@ INDEX_TEMPLATE = """
             initializeMatrix();
             loadApps();
             
-            // Update display every 100ms for smooth animation
-            setInterval(updateDisplay, 100);
+            // Update display every 1000ms
+            setInterval(updateDisplay, 1000);
             
             // Setup brightness slider
             const brightnessInput = document.getElementById('brightness');
