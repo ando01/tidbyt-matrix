@@ -922,6 +922,33 @@ def save_config():
     return jsonify({"success": True})
 
 
+@app.route('/api/debug')
+def debug_info():
+    """Return diagnostic info about all apps"""
+    if not tidbyt_display:
+        return jsonify({"error": "Display not initialized"}), 500
+    apps = []
+    for app_obj in tidbyt_display.app_manager.apps:
+        entry = {
+            "name": app_obj.name,
+            "enabled": app_obj.is_enabled(),
+            "cached_frames": len(app_obj.cached_frames),
+            "last_refresh": app_obj.last_refresh,
+            "config": app_obj.config.config,
+        }
+        if app_obj.name == 'Weather':
+            entry['lat'] = app_obj.lat
+            entry['lon'] = app_obj.lon
+            entry['location_name'] = app_obj.location_name
+        apps.append(entry)
+    current = tidbyt_display.app_manager.get_current_app()
+    return jsonify({
+        "apps": apps,
+        "current_app": current.name if current else None,
+        "config_path": tidbyt_display.config_path,
+    })
+
+
 @app.route('/settings')
 def settings_page():
     """Serve the settings page"""
@@ -950,38 +977,50 @@ def update_settings():
         return jsonify({"error": "Display not initialized"}), 500
 
     data = request.json or {}
-
     response = {"success": True}
 
-    for app_obj in tidbyt_display.app_manager.apps:
-        if app_obj.name == 'Weather' and 'weather' in data:
-            new_zip = data['weather'].get('zip_code')
-            if new_zip:
-                print(f"Settings: updating weather zip to {new_zip}")
-                app_obj.config.config['zip_code'] = new_zip
-                app_obj.zip_code = new_zip
-                app_obj.lat = None
-                app_obj.lon = None
-                app_obj.location_name = new_zip
-                # Geocode the new zip immediately
-                app_obj._resolve_location()
-                print(f"Settings: geocode result — lat={app_obj.lat}, loc={app_obj.location_name}")
-                if app_obj.lat is not None:
-                    response['location'] = app_obj.location_name
-                    # Fetch new weather frames now so display updates immediately
-                    new_frames = app_obj.get_frames()
-                    app_obj.cached_frames = new_frames
-                    app_obj.last_refresh = time.time()
-                    print(f"Settings: weather pre-fetched ({len(new_frames)} frames)")
-                else:
-                    response['warning'] = f"Could not resolve zip '{new_zip}' — check the zip code"
-        elif app_obj.name == 'Stocks' and 'stocks' in data:
-            new_symbols = data['stocks'].get('symbols')
-            if new_symbols is not None:
-                app_obj.config.config['symbols'] = new_symbols
-                app_obj.symbols = new_symbols
-                app_obj.cached_frames = []
-                app_obj.last_refresh = 0
+    try:
+        for app_obj in tidbyt_display.app_manager.apps:
+            if app_obj.name == 'Weather' and 'weather' in data:
+                new_zip = data['weather'].get('zip_code', '').strip()
+                if new_zip:
+                    print(f"Settings: updating weather zip to '{new_zip}'")
+                    app_obj.config.config['zip_code'] = new_zip
+                    app_obj.zip_code = new_zip
+                    app_obj.lat = None
+                    app_obj.lon = None
+                    app_obj.location_name = new_zip
+                    try:
+                        app_obj._resolve_location()
+                    except Exception as e:
+                        print(f"Settings: geocode error: {e}")
+                    print(f"Settings: after geocode — lat={app_obj.lat}, loc={app_obj.location_name}")
+                    if app_obj.lat is not None:
+                        response['location'] = app_obj.location_name
+                        try:
+                            new_frames = app_obj.get_frames()
+                            app_obj.cached_frames = new_frames
+                            app_obj.last_refresh = time.time()
+                            print(f"Settings: weather pre-fetched OK ({len(new_frames)} frames)")
+                        except Exception as e:
+                            print(f"Settings: get_frames error: {e}")
+                            import traceback; traceback.print_exc()
+                            app_obj.cached_frames = []
+                            app_obj.last_refresh = 0
+                    else:
+                        response['warning'] = f"Zip '{new_zip}' not found — try a nearby city name"
+            elif app_obj.name == 'Stocks' and 'stocks' in data:
+                new_symbols = data['stocks'].get('symbols')
+                if new_symbols is not None:
+                    app_obj.config.config['symbols'] = new_symbols
+                    app_obj.symbols = new_symbols
+                    app_obj.cached_frames = []
+                    app_obj.last_refresh = 0
+    except Exception as e:
+        import traceback
+        print(f"Settings update error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
     tidbyt_display.save_config()
     return jsonify(response)
