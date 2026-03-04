@@ -692,7 +692,8 @@ CONFIG_EDITOR_TEMPLATE = """
             Edit the JSON directly and click <strong>Save &amp; Apply</strong>.
             Changes take effect immediately — no restart needed.<br>
             To change weather location set <code>"zip_code"</code>.
-            To change stocks edit the <code>"symbols"</code> list.
+            To change stocks edit the <code>"symbols"</code> list.<br>
+            To slow transitions: increase <code>"frame_delay"</code> (default <code>0.5</code> = 2fps; try <code>1.0</code> for half speed).
         </p>
 
         <textarea id="editor" spellcheck="false"></textarea>

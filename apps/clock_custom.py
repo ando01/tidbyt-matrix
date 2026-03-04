@@ -1,4 +1,4 @@
-"""Custom clock app with color themes"""
+"""Custom clock app with color themes — single-screen time + date layout"""
 
 import time
 import colorsys
@@ -9,7 +9,7 @@ from typing import Optional, List
 
 
 class CustomClockApp(MatrixApp):
-    """Clock with configurable color themes and 12/24hr format"""
+    """Clock with time + date on one screen, configurable color themes and 12/24hr format"""
 
     COLOR_MAP = {
         'blue':  (100, 150, 255),
@@ -35,46 +35,44 @@ class CustomClockApp(MatrixApp):
         now = datetime.now()
 
         try:
-            font_large = ImageFont.truetype(
-                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 20)
-            font_med = ImageFont.truetype(
-                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 13)
+            font_time = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 18)
+            font_ampm = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 10)
+            font_date = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 11)
         except Exception:
-            font_large = font_med = ImageFont.load_default()
+            font_time = font_ampm = font_date = ImageFont.load_default()
 
-        # Slide 1: Time (6 frames = 3s)
         if self.format_24h:
             time_str = now.strftime("%H:%M")
+            ampm = None
         else:
             time_str = now.strftime("%I:%M").lstrip('0') or '12:00'
             ampm = now.strftime("%p")
 
-        for i in range(6):
-            color = self._get_color(i)
-            img = Image.new('RGB', (64, 32), (0, 0, 0))
-            draw = ImageDraw.Draw(img)
-            bbox = draw.textbbox((0, 0), time_str, font=font_large)
-            x = (64 - (bbox[2] - bbox[0])) // 2
-            y = (32 - (bbox[3] - bbox[1])) // 2
-            if not self.format_24h:
-                y = max(1, y - 4)
-            draw.text((x, y), time_str, fill=color, font=font_large)
-            if not self.format_24h:
-                ampm_color = tuple(max(0, c - 100) for c in color)
-                draw.text((x + (bbox[2] - bbox[0]) + 2, y + 6), ampm, fill=ampm_color, font=font_med)
-            frames.append(img)
+        # "Wed Mar 4" — no leading zero on day
+        date_str = now.strftime("%a %b %-d")
 
-        # Slide 2: Date (6 frames = 3s)
-        date_str = now.strftime("%a %b %d").replace(' 0', ' ')
-        for i in range(6):
-            color = self._get_color(i + 6)
-            dim = tuple(max(0, c - 80) for c in color)
+        for i in range(12):
+            color = self._get_color(i)
+            dim = tuple(max(0, c - 90) for c in color)
+
             img = Image.new('RGB', (64, 32), (0, 0, 0))
             draw = ImageDraw.Draw(img)
-            bbox = draw.textbbox((0, 0), date_str, font=font_med)
-            x = (64 - (bbox[2] - bbox[0])) // 2
-            y = (32 - (bbox[3] - bbox[1])) // 2
-            draw.text((x, y), date_str, fill=dim, font=font_med)
+
+            # --- Time row (top) ---
+            bbox = draw.textbbox((0, 0), time_str, font=font_time)
+            tw = bbox[2] - bbox[0]
+            draw.text((2, 1), time_str, fill=color, font=font_time)
+
+            if ampm:
+                # AM/PM to the right of the time, vertically centered on it
+                draw.text((tw + 4, 5), ampm, fill=dim, font=font_ampm)
+
+            # --- Date row (bottom) ---
+            draw.text((2, 21), date_str, fill=dim, font=font_date)
+
             frames.append(img)
 
         return frames

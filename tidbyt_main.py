@@ -44,6 +44,9 @@ class TidbytDisplay:
 
         # Full config dict (including disabled apps) — used by web config editor
         self._raw_config = {}
+
+        # Seconds each frame is displayed (1/fps). 0.5 = 2fps, 1.0 = 1fps
+        self.frame_delay = 0.5
         
         # Load configuration
         self.load_config()
@@ -111,9 +114,13 @@ class TidbytDisplay:
         merged_apps.update(config.get('apps', {}))
         merged = dict(config)
         merged['apps'] = merged_apps
+        merged.setdefault('frame_delay', 0.5)
 
         # Store full config for the web config editor
         self._raw_config = merged
+
+        # Frame delay — stored separately for use in display loop
+        self.frame_delay = float(merged.get('frame_delay', 0.5))
 
         # Set brightness
         brightness = merged.get('brightness', 100)
@@ -265,8 +272,8 @@ class TidbytDisplay:
                         frames = current_app.get_cached_frames()
 
                         if frames:
-                            # Cycle through frames at 2fps (slow enough for slides)
-                            frame_idx = int((time.time() * 2) % len(frames))
+                            # Cycle through frames at rate controlled by frame_delay
+                            frame_idx = int((time.time() / self.frame_delay) % len(frames))
                             self.display.draw_image(frames[frame_idx])
 
                         # Check if we should rotate to next app
