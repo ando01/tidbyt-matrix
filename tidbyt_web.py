@@ -406,7 +406,7 @@ INDEX_TEMPLATE = """
             <div class="button-group">
                 <button class="btn-primary" onclick="saveConfig()">💾 Save Config</button>
                 <button class="btn-secondary" onclick="reloadApps()">🔄 Refresh</button>
-                <button class="btn-secondary" onclick="location.href='/settings'">⚙ Settings</button>
+                <button class="btn-secondary" onclick="location.href='/config'">⚙ Config</button>
             </div>
         </div>
     </div>
@@ -569,13 +569,13 @@ INDEX_TEMPLATE = """
 """
 
 
-SETTINGS_TEMPLATE = """
+CONFIG_EDITOR_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tidbyt Settings</title>
+    <title>Tidbyt Config Editor</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -585,21 +585,21 @@ SETTINGS_TEMPLATE = """
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            padding: 40px 20px;
+            padding: 30px 20px;
         }
         .container {
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 500px;
             width: 100%;
-            padding: 40px;
+            max-width: 700px;
+            padding: 35px;
         }
         .header {
             display: flex;
             align-items: center;
             gap: 15px;
-            margin-bottom: 30px;
+            margin-bottom: 10px;
         }
         .back-btn {
             background: #f0f3ff;
@@ -610,61 +610,48 @@ SETTINGS_TEMPLATE = """
             font-weight: 600;
             cursor: pointer;
             font-size: 0.95em;
+            flex-shrink: 0;
         }
         .back-btn:hover { background: #e0e7ff; }
-        h1 { color: #333; font-size: 2em; }
-        .section { margin-bottom: 35px; }
-        .section-title {
-            color: #667eea;
-            font-size: 1.2em;
-            font-weight: 600;
-            margin-bottom: 15px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #f0f0f0;
+        h1 { color: #333; font-size: 1.8em; }
+        .hint {
+            color: #888;
+            font-size: 0.88em;
+            margin-bottom: 18px;
+            line-height: 1.5;
         }
-        label { display: block; color: #555; margin-bottom: 6px; font-size: 0.95em; }
-        input[type="text"] {
+        .hint code {
+            background: #f0f3ff;
+            color: #667eea;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        textarea {
             width: 100%;
-            padding: 10px 14px;
+            height: 380px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
             border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 1em;
+            border-radius: 10px;
+            padding: 16px;
+            resize: vertical;
             outline: none;
+            color: #222;
+            background: #fafafa;
             transition: border-color 0.2s;
         }
-        input[type="text"]:focus { border-color: #667eea; }
-        .symbol-list {
+        textarea:focus { border-color: #667eea; background: #fff; }
+        textarea.error { border-color: #dc3545; }
+        .btn-row {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-            min-height: 36px;
-        }
-        .symbol-tag {
-            background: #f0f3ff;
-            border: 1px solid #c0c8f0;
-            color: #333;
-            border-radius: 20px;
-            padding: 4px 10px;
-            font-size: 0.9em;
-            display: flex;
+            gap: 10px;
+            margin-top: 16px;
             align-items: center;
-            gap: 6px;
         }
-        .symbol-tag .remove {
-            cursor: pointer;
-            color: #999;
-            font-weight: bold;
-            line-height: 1;
-        }
-        .symbol-tag .remove:hover { color: #e74c3c; }
-        .add-row {
-            display: flex;
-            gap: 8px;
-        }
-        .add-row input { flex: 1; }
         button {
-            padding: 10px 18px;
+            padding: 11px 22px;
             border: none;
             border-radius: 8px;
             font-size: 0.95em;
@@ -672,157 +659,120 @@ SETTINGS_TEMPLATE = """
             cursor: pointer;
             transition: all 0.2s;
         }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
-        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn-small {
-            background: #667eea;
-            color: white;
-            padding: 8px 14px;
+        .btn-primary:not(:disabled):hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-secondary {
+            background: #f0f3ff;
+            color: #667eea;
+        }
+        .btn-secondary:hover { background: #e0e7ff; }
+        .status {
+            margin-left: auto;
             font-size: 0.9em;
-        }
-        .save-row { margin-top: 12px; }
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            padding: 12px 20px;
-            border-radius: 10px;
-            color: white;
             font-weight: 600;
-            font-size: 0.95em;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
+            padding: 6px 14px;
+            border-radius: 6px;
         }
-        .toast.show { opacity: 1; }
-        .toast.success { background: #28a745; }
-        .toast.error { background: #dc3545; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error   { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <button class="back-btn" onclick="location.href='/'">← Back</button>
-            <h1>Settings</h1>
+            <h1>Config Editor</h1>
         </div>
+        <p class="hint">
+            Edit the JSON directly and click <strong>Save &amp; Apply</strong>.
+            Changes take effect immediately — no restart needed.<br>
+            To change weather location set <code>"zip_code"</code>.
+            To change stocks edit the <code>"symbols"</code> list.
+        </p>
 
-        <!-- Weather Settings -->
-        <div class="section">
-            <div class="section-title">Weather</div>
-            <label for="zip-code">Zip Code</label>
-            <input type="text" id="zip-code" placeholder="e.g. 02134" maxlength="10">
-            <div class="save-row">
-                <button class="btn-primary" onclick="saveWeather(this)">Save Weather</button>
-            </div>
-        </div>
+        <textarea id="editor" spellcheck="false"></textarea>
 
-        <!-- Stocks Settings -->
-        <div class="section">
-            <div class="section-title">Stocks</div>
-            <label>Symbols</label>
-            <div class="symbol-list" id="symbol-list"></div>
-            <div class="add-row">
-                <input type="text" id="new-symbol" placeholder="e.g. NVDA" maxlength="10"
-                       onkeydown="if(event.key==='Enter') addStock()">
-                <button class="btn-small" onclick="addStock()">Add</button>
-            </div>
+        <div class="btn-row">
+            <button class="btn-primary" id="save-btn" onclick="saveConfig()">Save &amp; Apply</button>
+            <button class="btn-secondary" onclick="formatJson()">Format JSON</button>
+            <button class="btn-secondary" onclick="loadConfig()">Reload</button>
+            <span class="status" id="status" style="display:none"></span>
         </div>
     </div>
 
-    <div class="toast" id="toast"></div>
-
     <script>
-        let currentSymbols = [];
-
-        function showToast(msg, type) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.className = 'toast ' + type + ' show';
-            setTimeout(() => t.className = 'toast', 2500);
+        function showStatus(msg, type) {
+            const s = document.getElementById('status');
+            s.textContent = msg;
+            s.className = 'status ' + type;
+            s.style.display = '';
+            if (type === 'success') setTimeout(() => s.style.display = 'none', 4000);
         }
 
-        function renderSymbols() {
-            const list = document.getElementById('symbol-list');
-            list.innerHTML = '';
-            currentSymbols.forEach(sym => {
-                const tag = document.createElement('div');
-                tag.className = 'symbol-tag';
-                tag.innerHTML = sym + '<span class="remove" onclick="removeStock(\'' + sym + '\')">✕</span>';
-                list.appendChild(tag);
-            });
+        function loadConfig() {
+            fetch('/api/config/raw')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('editor').value = JSON.stringify(data, null, 2);
+                    document.getElementById('editor').classList.remove('error');
+                })
+                .catch(e => showStatus('Failed to load config', 'error'));
         }
 
-        function addStock() {
-            const input = document.getElementById('new-symbol');
-            const sym = input.value.trim().toUpperCase();
-            if (!sym) return;
-            if (currentSymbols.includes(sym)) { showToast(sym + ' already in list', 'error'); return; }
-            currentSymbols.push(sym);
-            input.value = '';
-            renderSymbols();
-            saveStocks();
+        function formatJson() {
+            const ta = document.getElementById('editor');
+            try {
+                ta.value = JSON.stringify(JSON.parse(ta.value), null, 2);
+                ta.classList.remove('error');
+            } catch(e) {
+                ta.classList.add('error');
+                showStatus('Invalid JSON: ' + e.message, 'error');
+            }
         }
 
-        function removeStock(sym) {
-            currentSymbols = currentSymbols.filter(s => s !== sym);
-            renderSymbols();
-            saveStocks();
-        }
-
-        function saveWeather(btn) {
-            const zip = document.getElementById('zip-code').value.trim();
-            if (!zip) { showToast('Please enter a zip code', 'error'); return; }
+        function saveConfig() {
+            const ta = document.getElementById('editor');
+            let parsed;
+            try {
+                parsed = JSON.parse(ta.value);
+                ta.classList.remove('error');
+            } catch(e) {
+                ta.classList.add('error');
+                showStatus('Invalid JSON: ' + e.message, 'error');
+                return;
+            }
+            const btn = document.getElementById('save-btn');
             btn.disabled = true;
-            btn.textContent = 'Saving...';
-            fetch('/api/settings', {
+            btn.textContent = 'Applying...';
+            fetch('/api/config/raw', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({weather: {zip_code: zip}})
+                body: JSON.stringify({config: ta.value})
             })
             .then(r => r.json())
             .then(d => {
                 btn.disabled = false;
-                btn.textContent = 'Save Weather';
-                if (d.warning) {
-                    showToast(d.warning, 'error');
-                } else if (d.location) {
-                    showToast('Updated for ' + d.location + '! Display refreshing...', 'success');
-                } else if (d.error) {
-                    showToast('Error: ' + d.error, 'error');
+                btn.textContent = 'Save & Apply';
+                if (d.success) {
+                    showStatus(d.warning || 'Applied!', d.warning ? 'warning' : 'success');
+                    loadConfig();
                 } else {
-                    showToast('Saved!', 'success');
+                    showStatus('Error: ' + (d.error || 'unknown'), 'error');
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 btn.disabled = false;
-                btn.textContent = 'Save Weather';
-                showToast('Request failed — check Pi terminal for errors', 'error');
+                btn.textContent = 'Save & Apply';
+                showStatus('Request failed', 'error');
             });
         }
 
-        function saveStocks() {
-            fetch('/api/settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({stocks: {symbols: currentSymbols}})
-            })
-            .then(r => r.json())
-            .then(d => { if (d.success) showToast('Stocks saved!', 'success'); })
-            .catch(() => showToast('Error saving stocks', 'error'));
-        }
-
-        // Load current settings
-        fetch('/api/settings')
-            .then(r => r.json())
-            .then(data => {
-                document.getElementById('zip-code').value = data.weather?.zip_code || '';
-                currentSymbols = data.stocks?.symbols || [];
-                renderSymbols();
-            })
-            .catch(e => console.error('Error loading settings:', e));
+        loadConfig();
     </script>
 </body>
 </html>
@@ -958,75 +908,58 @@ def debug_info():
     })
 
 
-@app.route('/settings')
-def settings_page():
-    """Serve the settings page"""
-    return render_template_string(SETTINGS_TEMPLATE)
+@app.route('/config')
+def config_editor():
+    """Serve the config editor page"""
+    return render_template_string(CONFIG_EDITOR_TEMPLATE)
 
 
-@app.route('/api/settings', methods=['GET'])
-def get_settings():
-    """Return current app-specific settings (zip_code, symbols)"""
+@app.route('/api/config/raw', methods=['GET'])
+def get_raw_config():
+    """Return current in-memory config as JSON"""
     if not tidbyt_display:
         return jsonify({"error": "Display not initialized"}), 500
-
-    result = {}
+    config = {"brightness": tidbyt_display.display.get_brightness(), "apps": {}}
     for app_obj in tidbyt_display.app_manager.apps:
-        if app_obj.name == 'Weather':
-            result['weather'] = {'zip_code': app_obj.config.config.get('zip_code', '02134')}
-        elif app_obj.name == 'Stocks':
-            result['stocks'] = {'symbols': app_obj.config.config.get('symbols', [])}
-    return jsonify(result)
+        entry = {"enabled": app_obj.is_enabled(), "priority": app_obj.config.priority}
+        if app_obj.config.config:
+            entry.update(app_obj.config.config)
+        config["apps"][app_obj.name.lower()] = entry
+    return jsonify(config)
 
 
-@app.route('/api/settings', methods=['POST'])
-def update_settings():
-    """Update app-specific settings live and persist to disk"""
+@app.route('/api/config/raw', methods=['POST'])
+def save_raw_config():
+    """Parse, apply, and persist a new config JSON"""
     if not tidbyt_display:
         return jsonify({"error": "Display not initialized"}), 500
-
     data = request.json or {}
-    response = {"success": True}
-
+    config_str = data.get('config', '')
     try:
-        for app_obj in tidbyt_display.app_manager.apps:
-            if app_obj.name == 'Weather' and 'weather' in data:
-                new_zip = data['weather'].get('zip_code', '').strip()
-                if new_zip:
-                    print(f"Settings: updating weather zip to '{new_zip}'")
-                    app_obj.config.config['zip_code'] = new_zip
-                    app_obj.zip_code = new_zip
-                    app_obj.lat = None
-                    app_obj.lon = None
-                    app_obj.location_name = new_zip
-                    try:
-                        app_obj._resolve_location()
-                    except Exception as e:
-                        print(f"Settings: geocode error: {e}")
-                    print(f"Settings: after geocode — lat={app_obj.lat}, loc={app_obj.location_name}")
-                    if app_obj.lat is not None:
-                        response['location'] = app_obj.location_name
-                        # Drop stale cache; display loop will fetch new weather
-                        app_obj.cached_frames = []
-                        app_obj.last_refresh = 0
-                        print(f"Settings: cache cleared, display loop will refresh weather")
-                    else:
-                        response['warning'] = f"Zip '{new_zip}' not found — try a nearby city name"
-            elif app_obj.name == 'Stocks' and 'stocks' in data:
-                new_symbols = data['stocks'].get('symbols')
-                if new_symbols is not None:
-                    app_obj.config.config['symbols'] = new_symbols
-                    app_obj.symbols = new_symbols
-                    app_obj.cached_frames = []
-                    app_obj.last_refresh = 0
+        new_config = json.loads(config_str)
+    except (json.JSONDecodeError, ValueError) as e:
+        return jsonify({"success": False, "error": f"Invalid JSON: {e}"}), 400
+
+    # Apply to running display — re-creates all app instances with new config
+    try:
+        tidbyt_display._apply_config(new_config)
     except Exception as e:
-        import traceback
-        print(f"Settings update error: {e}")
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-    tidbyt_display.save_config()
-    return jsonify(response)
+    # Persist to disk
+    config_path = tidbyt_display.config_path
+    try:
+        try:
+            with open(config_path, 'w') as f:
+                json.dump(new_config, f, indent=2)
+        except PermissionError:
+            os.remove(config_path)
+            with open(config_path, 'w') as f:
+                json.dump(new_config, f, indent=2)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": True, "warning": f"Applied but could not save to disk: {e}"})
 
 
 # ============================================================================
