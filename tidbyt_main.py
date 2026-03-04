@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Optional, List
 import signal
 import sys
+from PIL import Image
 
 from tidbyt_matrix import MatrixDisplay, MatrixConfig
 from tidbyt_apps import (
@@ -47,6 +48,10 @@ class TidbytDisplay:
 
         # Seconds each frame is displayed (1/fps). 0.5 = 2fps, 1.0 = 1fps
         self.frame_delay = 0.5
+
+        # Horizontal scroll transition state
+        self._transition_frames = []
+        self._transition_idx = 0
         
         # Load configuration
         self.load_config()
@@ -256,14 +261,37 @@ class TidbytDisplay:
         self.display.close()
         print("Display stopped")
     
+    def _build_transition(self, frame_a: Image.Image, frame_b: Image.Image, steps: int = 16):
+        """Build horizontal scroll frames: frame_b slides in from right, frame_a exits left."""
+        frames = []
+        for i in range(1, steps + 1):
+            offset = int(i * 64 / steps)
+            img = Image.new('RGB', (64, 32), (0, 0, 0))
+            if offset < 64:
+                img.paste(frame_a.crop((offset, 0, 64, 32)), (0, 0))
+            if offset > 0:
+                img.paste(frame_b.crop((0, 0, min(offset, 64), 32)), (64 - offset, 0))
+            frames.append(img)
+        return frames
+
     def _display_loop(self):
         """Main display loop"""
         try:
             while self.is_running:
                 with self.lock:
-                    # Get current app
+                    # --- Transition playback (runs at 20fps for smooth scroll) ---
+                    if self._transition_frames:
+                        self.display.draw_image(self._transition_frames[self._transition_idx])
+                        self._transition_idx += 1
+                        if self._transition_idx >= len(self._transition_frames):
+                            self._transition_frames = []
+                            self._transition_idx = 0
+                        time.sleep(0.05)
+                        continue
+
+                    # --- Normal display ---
                     current_app = self.app_manager.get_current_app()
-                    
+
                     if current_app:
                         # Refresh app data if needed
                         current_app.refresh()
@@ -271,18 +299,29 @@ class TidbytDisplay:
                         # Get frames for current app
                         frames = current_app.get_cached_frames()
 
+                        current_frame = None
                         if frames:
-                            # Cycle through frames at rate controlled by frame_delay
                             frame_idx = int((time.time() / self.frame_delay) % len(frames))
-                            self.display.draw_image(frames[frame_idx])
+                            current_frame = frames[frame_idx]
+                            self.display.draw_image(current_frame)
 
                         # Check if we should rotate to next app
                         if self.app_manager.should_rotate():
                             self.app_manager.rotate_app()
+                            # Build scroll transition if multiple apps are active
+                            next_app = self.app_manager.get_current_app()
+                            enabled = self.app_manager.get_enabled_apps()
+                            if next_app and current_frame and len(enabled) > 1:
+                                next_app.refresh()
+                                next_frames = next_app.get_cached_frames()
+                                if next_frames:
+                                    self._transition_frames = self._build_transition(
+                                        current_frame, next_frames[0])
+                                    self._transition_idx = 0
                     else:
                         # No apps enabled — clear display
                         self.display.clear()
-                    
+
                     # Small sleep to prevent CPU spinning
                     time.sleep(0.1)
         
