@@ -12,6 +12,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import json
 import os
+import requests
 
 
 @dataclass
@@ -116,82 +117,178 @@ class ClockApp(MatrixApp):
 
 
 class WeatherApp(MatrixApp):
-    """Weather display (mock data)"""
-    
+    """Weather display using Open-Meteo API (free, no key required)"""
+
+    WMO_CODES = {
+        0: "Clear", 1: "Mostly Clear", 2: "Partly Cloudy", 3: "Overcast",
+        45: "Foggy", 48: "Icy Fog",
+        51: "Lt Drizzle", 53: "Drizzle", 55: "Hvy Drizzle",
+        61: "Lt Rain", 63: "Rain", 65: "Hvy Rain",
+        71: "Lt Snow", 73: "Snow", 75: "Hvy Snow", 77: "Snow Grains",
+        80: "Showers", 81: "Showers", 82: "Hvy Showers",
+        85: "Snow Showers", 86: "Hvy Snow",
+        95: "Thunderstorm", 96: "Thunderstorm", 99: "Hvy Storm",
+    }
+
     def __init__(self, config: Optional[AppConfig] = None):
         super().__init__("Weather", config)
-        self.api_key = config.config.get('api_key', '') if config else ''
-        self.location = config.config.get('location', 'Boston, MA') if config else 'Boston, MA'
-    
+        self.zip_code = config.config.get('zip_code', '02134') if config else '02134'
+        self.lat = None
+        self.lon = None
+        self.location_name = self.zip_code
+        self._resolve_location()
+
+    def _resolve_location(self):
+        """Convert zip code to lat/lon using Open-Meteo geocoding"""
+        try:
+            url = f"https://geocoding-api.open-meteo.com/v1/search?name={self.zip_code}&count=1&country=US&language=en&format=json"
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            if data.get('results'):
+                result = data['results'][0]
+                self.lat = result['latitude']
+                self.lon = result['longitude']
+                self.location_name = result.get('name', self.zip_code)
+        except Exception as e:
+            print(f"Weather: Could not resolve location for {self.zip_code}: {e}")
+
+    def _fetch_weather(self):
+        """Fetch current conditions + today's high/low from Open-Meteo"""
+        if self.lat is None:
+            self._resolve_location()
+        if self.lat is None:
+            return None
+        try:
+            url = (
+                f"https://api.open-meteo.com/v1/forecast"
+                f"?latitude={self.lat}&longitude={self.lon}"
+                f"&current=temperature_2m,weather_code,relative_humidity_2m"
+                f"&daily=temperature_2m_max,temperature_2m_min"
+                f"&temperature_unit=fahrenheit&timezone=auto&forecast_days=1"
+            )
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            current = data.get('current', {})
+            daily = data.get('daily', {})
+            return {
+                'temp': round(current.get('temperature_2m', 0)),
+                'humidity': round(current.get('relative_humidity_2m', 0)),
+                'code': current.get('weather_code', 0),
+                'high': round(daily.get('temperature_2m_max', [0])[0]),
+                'low': round(daily.get('temperature_2m_min', [0])[0]),
+            }
+        except Exception as e:
+            print(f"Weather fetch error: {e}")
+            return None
+
     def get_frames(self) -> List[Image.Image]:
         frames = []
-
         try:
-            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 12)
+            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 11)
             data_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 18)
+            med_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 13)
         except:
-            title_font = data_font = ImageFont.load_default()
+            title_font = data_font = med_font = ImageFont.load_default()
 
-        # Frame 1: Temperature (hold for ~3s at 2fps = 6 frames)
-        img = Image.new('RGB', (64, 32), (0, 0, 10))
+        weather = self._fetch_weather()
+
+        if not weather:
+            img = Image.new('RGB', (64, 32), (20, 0, 0))
+            draw = ImageDraw.Draw(img)
+            draw.text((2, 10), "No weather", fill=(255, 100, 100), font=title_font)
+            return [img] * 6
+
+        condition = self.WMO_CODES.get(weather['code'], "Unknown")
+
+        # Slide 1: Location + Temperature
+        img = Image.new('RGB', (64, 32), (0, 0, 15))
         draw = ImageDraw.Draw(img)
-        draw.text((2, 2), "WEATHER", fill=(255, 200, 0), font=title_font)
-        draw.text((8, 15), "72°F", fill=(100, 200, 255), font=data_font)
+        draw.text((2, 1), self.location_name[:10], fill=(255, 200, 0), font=title_font)
+        draw.text((2, 13), f"{weather['temp']}°F", fill=(100, 200, 255), font=data_font)
         frames.extend([img] * 6)
 
-        # Frame 2: Condition (hold for ~3s)
-        img = Image.new('RGB', (64, 32), (0, 0, 10))
+        # Slide 2: Condition + Humidity
+        img = Image.new('RGB', (64, 32), (0, 0, 15))
         draw = ImageDraw.Draw(img)
-        draw.text((2, 2), "WEATHER", fill=(255, 200, 0), font=title_font)
-        draw.text((2, 17), "Partly Cloudy", fill=(150, 150, 200), font=title_font)
+        draw.text((2, 1), condition[:12], fill=(150, 200, 255), font=title_font)
+        draw.text((2, 16), f"Humidity {weather['humidity']}%", fill=(150, 150, 200), font=title_font)
+        frames.extend([img] * 6)
+
+        # Slide 3: High / Low
+        img = Image.new('RGB', (64, 32), (0, 0, 15))
+        draw = ImageDraw.Draw(img)
+        draw.text((2, 1), "Today", fill=(255, 200, 0), font=title_font)
+        draw.text((2, 13), f"H:{weather['high']} L:{weather['low']}", fill=(200, 200, 100), font=med_font)
         frames.extend([img] * 6)
 
         return frames
-    
+
     def needs_refresh(self) -> bool:
-        # Refresh every 10 minutes
         return time.time() - self.last_refresh > 600
 
 
 class StockApp(MatrixApp):
-    """Stock ticker (mock data)"""
-    
+    """Stock ticker using yfinance"""
+
     def __init__(self, config: Optional[AppConfig] = None):
         super().__init__("Stocks", config)
         self.symbols = config.config.get('symbols', ['AAPL', 'TSLA']) if config else ['AAPL', 'TSLA']
-    
+
+    def _fetch_stocks(self):
+        """Fetch real stock data using yfinance"""
+        results = []
+        try:
+            import yfinance as yf
+            for sym in self.symbols:
+                try:
+                    info = yf.Ticker(sym).fast_info
+                    price = info.last_price
+                    prev = info.previous_close
+                    if price and prev:
+                        pct = (price - prev) / prev * 100
+                        is_up = price >= prev
+                        results.append({
+                            'symbol': sym,
+                            'price': f"{price:.2f}",
+                            'change': f"{'+' if is_up else ''}{pct:.1f}%",
+                            'is_up': is_up,
+                        })
+                except Exception as e:
+                    print(f"Stock error for {sym}: {e}")
+        except ImportError:
+            print("yfinance not installed — run: sudo pip install --break-system-packages yfinance")
+            for sym in self.symbols:
+                results.append({'symbol': sym, 'price': 'N/A', 'change': '+0.0%', 'is_up': True})
+        return results
+
     def get_frames(self) -> List[Image.Image]:
         frames = []
-        
-        # Mock stock data
-        stocks = {
-            'AAPL': ('180.5', '+2.3%', True),
-            'TSLA': ('245.0', '-1.2%', False),
-        }
-        
-        for symbol in self.symbols:
-            price, change, is_up = stocks.get(symbol, ('0.0', '+0.0%', True))
-            color = (100, 255, 100) if is_up else (255, 100, 100)
+        try:
+            symbol_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 16)
+            price_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 12)
+        except:
+            symbol_font = price_font = ImageFont.load_default()
 
+        stocks = self._fetch_stocks()
+
+        if not stocks:
             img = Image.new('RGB', (64, 32), (0, 0, 0))
             draw = ImageDraw.Draw(img)
+            draw.text((2, 10), "No data", fill=(255, 100, 100), font=price_font)
+            return [img] * 6
 
-            try:
-                symbol_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 16)
-                price_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 12)
-            except:
-                symbol_font = price_font = ImageFont.load_default()
+        for stock in stocks:
+            color = (100, 255, 100) if stock['is_up'] else (255, 100, 100)
+            img = Image.new('RGB', (64, 32), (0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            draw.text((2, 2), stock['symbol'], fill=(255, 255, 255), font=symbol_font)
+            draw.text((2, 18), stock['price'], fill=(200, 200, 200), font=price_font)
+            draw.text((36, 18), stock['change'], fill=color, font=price_font)
+            frames.extend([img] * 6)
 
-            draw.text((2, 2), symbol, fill=(255, 255, 255), font=symbol_font)
-            draw.text((2, 18), price, fill=(200, 200, 200), font=price_font)
-            draw.text((36, 18), change, fill=color, font=price_font)
-
-            frames.extend([img] * 6)  # Hold each stock for ~3s at 2fps
-        
         return frames
-    
+
     def needs_refresh(self) -> bool:
-        # Refresh every 5 minutes
         return time.time() - self.last_refresh > 300
 
 

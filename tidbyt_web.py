@@ -405,6 +405,7 @@ INDEX_TEMPLATE = """
             <div class="button-group">
                 <button class="btn-primary" onclick="saveConfig()">💾 Save Config</button>
                 <button class="btn-secondary" onclick="reloadApps()">🔄 Refresh</button>
+                <button class="btn-secondary" onclick="location.href='/settings'">⚙ Settings</button>
             </div>
         </div>
     </div>
@@ -567,6 +568,248 @@ INDEX_TEMPLATE = """
 """
 
 
+SETTINGS_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tidbyt Settings</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .back-btn {
+            background: #f0f3ff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95em;
+        }
+        .back-btn:hover { background: #e0e7ff; }
+        h1 { color: #333; font-size: 2em; }
+        .section { margin-bottom: 35px; }
+        .section-title {
+            color: #667eea;
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        label { display: block; color: #555; margin-bottom: 6px; font-size: 0.95em; }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus { border-color: #667eea; }
+        .symbol-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            min-height: 36px;
+        }
+        .symbol-tag {
+            background: #f0f3ff;
+            border: 1px solid #c0c8f0;
+            color: #333;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .symbol-tag .remove {
+            cursor: pointer;
+            color: #999;
+            font-weight: bold;
+            line-height: 1;
+        }
+        .symbol-tag .remove:hover { color: #e74c3c; }
+        .add-row {
+            display: flex;
+            gap: 8px;
+        }
+        .add-row input { flex: 1; }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-small {
+            background: #667eea;
+            color: white;
+            padding: 8px 14px;
+            font-size: 0.9em;
+        }
+        .save-row { margin-top: 12px; }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.95em;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .toast.success { background: #28a745; }
+        .toast.error { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="back-btn" onclick="location.href='/'">← Back</button>
+            <h1>Settings</h1>
+        </div>
+
+        <!-- Weather Settings -->
+        <div class="section">
+            <div class="section-title">Weather</div>
+            <label for="zip-code">Zip Code</label>
+            <input type="text" id="zip-code" placeholder="e.g. 02134" maxlength="10">
+            <div class="save-row">
+                <button class="btn-primary" onclick="saveWeather()">Save Weather</button>
+            </div>
+        </div>
+
+        <!-- Stocks Settings -->
+        <div class="section">
+            <div class="section-title">Stocks</div>
+            <label>Symbols</label>
+            <div class="symbol-list" id="symbol-list"></div>
+            <div class="add-row">
+                <input type="text" id="new-symbol" placeholder="e.g. NVDA" maxlength="10"
+                       onkeydown="if(event.key==='Enter') addStock()">
+                <button class="btn-small" onclick="addStock()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let currentSymbols = [];
+
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast ' + type + ' show';
+            setTimeout(() => t.className = 'toast', 2500);
+        }
+
+        function renderSymbols() {
+            const list = document.getElementById('symbol-list');
+            list.innerHTML = '';
+            currentSymbols.forEach(sym => {
+                const tag = document.createElement('div');
+                tag.className = 'symbol-tag';
+                tag.innerHTML = sym + '<span class="remove" onclick="removeStock(\'' + sym + '\')">✕</span>';
+                list.appendChild(tag);
+            });
+        }
+
+        function addStock() {
+            const input = document.getElementById('new-symbol');
+            const sym = input.value.trim().toUpperCase();
+            if (!sym) return;
+            if (currentSymbols.includes(sym)) { showToast(sym + ' already in list', 'error'); return; }
+            currentSymbols.push(sym);
+            input.value = '';
+            renderSymbols();
+            saveStocks();
+        }
+
+        function removeStock(sym) {
+            currentSymbols = currentSymbols.filter(s => s !== sym);
+            renderSymbols();
+            saveStocks();
+        }
+
+        function saveWeather() {
+            const zip = document.getElementById('zip-code').value.trim();
+            if (!zip) { showToast('Please enter a zip code', 'error'); return; }
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({weather: {zip_code: zip}})
+            })
+            .then(r => r.json())
+            .then(d => d.success ? showToast('Weather saved!', 'success') : showToast('Error saving', 'error'))
+            .catch(() => showToast('Error saving', 'error'));
+        }
+
+        function saveStocks() {
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({stocks: {symbols: currentSymbols}})
+            })
+            .then(r => r.json())
+            .then(d => { if (d.success) showToast('Stocks saved!', 'success'); })
+            .catch(() => showToast('Error saving stocks', 'error'));
+        }
+
+        // Load current settings
+        fetch('/api/settings')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('zip-code').value = data.weather?.zip_code || '';
+                currentSymbols = data.stocks?.symbols || [];
+                renderSymbols();
+            })
+            .catch(e => console.error('Error loading settings:', e));
+    </script>
+</body>
+</html>
+"""
+
+
 # ============================================================================
 # FLASK ROUTES
 # ============================================================================
@@ -664,7 +907,55 @@ def save_config():
     """Save configuration"""
     if not tidbyt_display:
         return jsonify({"error": "Display not initialized"}), 500
-    
+
+    tidbyt_display.save_config()
+    return jsonify({"success": True})
+
+
+@app.route('/settings')
+def settings_page():
+    """Serve the settings page"""
+    return render_template_string(SETTINGS_TEMPLATE)
+
+
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    """Return current app-specific settings (zip_code, symbols)"""
+    if not tidbyt_display:
+        return jsonify({"error": "Display not initialized"}), 500
+
+    result = {}
+    for app_obj in tidbyt_display.app_manager.apps:
+        if app_obj.name == 'Weather':
+            result['weather'] = {'zip_code': app_obj.config.config.get('zip_code', '02134')}
+        elif app_obj.name == 'Stocks':
+            result['stocks'] = {'symbols': app_obj.config.config.get('symbols', [])}
+    return jsonify(result)
+
+
+@app.route('/api/settings', methods=['POST'])
+def update_settings():
+    """Update app-specific settings live and persist to disk"""
+    if not tidbyt_display:
+        return jsonify({"error": "Display not initialized"}), 500
+
+    data = request.json or {}
+
+    for app_obj in tidbyt_display.app_manager.apps:
+        if app_obj.name == 'Weather' and 'weather' in data:
+            new_zip = data['weather'].get('zip_code')
+            if new_zip:
+                app_obj.config.config['zip_code'] = new_zip
+                app_obj.zip_code = new_zip
+                app_obj._resolve_location()
+                app_obj.last_refresh = 0  # force refresh
+        elif app_obj.name == 'Stocks' and 'stocks' in data:
+            new_symbols = data['stocks'].get('symbols')
+            if new_symbols is not None:
+                app_obj.config.config['symbols'] = new_symbols
+                app_obj.symbols = new_symbols
+                app_obj.last_refresh = 0  # force refresh
+
     tidbyt_display.save_config()
     return jsonify({"success": True})
 

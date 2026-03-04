@@ -73,8 +73,8 @@ class TidbytDisplay:
             "brightness": 100,
             "apps": {
                 "clock": {"enabled": True, "priority": 10},
-                "weather": {"enabled": True, "priority": 5},
-                "stocks": {"enabled": True, "priority": 5},
+                "weather": {"enabled": True, "priority": 5, "zip_code": "02134"},
+                "stocks": {"enabled": True, "priority": 5, "symbols": ["AAPL", "TSLA"]},
                 "art": {"enabled": True, "priority": 1},
                 "news": {"enabled": False, "priority": 3},
             }
@@ -118,17 +118,23 @@ class TidbytDisplay:
                 enabled=True,
                 priority=apps_config.get('weather', {}).get('priority', 5),
                 display_duration=10,
-                refresh_interval=600
+                refresh_interval=600,
+                config={
+                    'zip_code': apps_config.get('weather', {}).get('zip_code', '02134')
+                }
             )
             self.app_manager.add_app(WeatherApp(weather_cfg))
-        
+
         # Stocks app
         if apps_config.get('stocks', {}).get('enabled', True):
             stocks_cfg = AppConfig(
                 enabled=True,
                 priority=apps_config.get('stocks', {}).get('priority', 5),
                 display_duration=10,
-                refresh_interval=300
+                refresh_interval=300,
+                config={
+                    'symbols': apps_config.get('stocks', {}).get('symbols', ['AAPL', 'TSLA'])
+                }
             )
             self.app_manager.add_app(StockApp(stocks_cfg))
         
@@ -237,10 +243,13 @@ class TidbytDisplay:
         }
         
         for app in self.app_manager.apps:
-            config["apps"][app.name.lower()] = {
+            app_entry = {
                 "enabled": app.is_enabled(),
                 "priority": app.config.priority
             }
+            if app.config.config:
+                app_entry.update(app.config.config)
+            config["apps"][app.name.lower()] = app_entry
         
         try:
             with open(self.config_path, 'w') as f:
