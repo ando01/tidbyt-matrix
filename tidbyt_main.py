@@ -79,13 +79,31 @@ class TidbytDisplay:
         """
         tmp_path = self.config_path + '.tmp'
         try:
-            # Ensure parent directory exists (handles fresh installs)
-            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
             with open(tmp_path, 'w') as f:
                 json.dump(config, f, indent=2)
             os.replace(tmp_path, self.config_path)
             print(f"Config saved to {self.config_path}")
             return True, None
+        except PermissionError:
+            # Likely the existing config file is owned by root from a previous
+            # sudo run.  Delete it first — directory write permission is enough
+            # for unlink — then recreate.
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+            try:
+                if os.path.exists(self.config_path):
+                    os.remove(self.config_path)
+                with open(self.config_path, 'w') as f:
+                    json.dump(config, f, indent=2)
+                print(f"Config saved to {self.config_path} (replaced root-owned file)")
+                return True, None
+            except Exception as e2:
+                msg = (f"Cannot write to {self.config_path}: {e2}. "
+                       f"Run: sudo chown andy:andy {self.config_path}")
+                print(f"Warning: {msg}")
+                return False, msg
         except Exception as e:
             try:
                 os.remove(tmp_path)

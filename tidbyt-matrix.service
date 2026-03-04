@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/home/andy/tidbyt
+# Ensure config file is owned by root (the service user) so writes always succeed
+ExecStartPre=/bin/bash -c 'touch /home/andy/tidbyt/tidbyt_config.json && chown root:root /home/andy/tidbyt/tidbyt_config.json && chmod 644 /home/andy/tidbyt/tidbyt_config.json'
 ExecStart=/usr/bin/python3 /home/andy/tidbyt/tidbyt_web.py
 Restart=on-failure
 RestartSec=10
