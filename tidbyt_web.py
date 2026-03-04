@@ -715,7 +715,7 @@ SETTINGS_TEMPLATE = """
             <label for="zip-code">Zip Code</label>
             <input type="text" id="zip-code" placeholder="e.g. 02134" maxlength="10">
             <div class="save-row">
-                <button class="btn-primary" onclick="saveWeather()">Save Weather</button>
+                <button class="btn-primary" onclick="saveWeather(this)">Save Weather</button>
             </div>
         </div>
 
@@ -772,10 +772,9 @@ SETTINGS_TEMPLATE = """
             saveStocks();
         }
 
-        function saveWeather() {
+        function saveWeather(btn) {
             const zip = document.getElementById('zip-code').value.trim();
             if (!zip) { showToast('Please enter a zip code', 'error'); return; }
-            const btn = event.target;
             btn.disabled = true;
             btn.textContent = 'Saving...';
             fetch('/api/settings', {
