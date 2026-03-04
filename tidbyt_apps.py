@@ -82,8 +82,8 @@ class ClockApp(MatrixApp):
         
     def get_frames(self) -> List[Image.Image]:
         frames = []
-        # Generate 60 frames (6 seconds of animation)
-        for i in range(60):
+        # 4 frames at 2fps = 2 seconds, colon blinks each second
+        for i in range(4):
             now = datetime.now()
             hour = now.strftime("%H")
             minute = now.strftime("%M")
@@ -294,6 +294,7 @@ class AppManager:
         enabled = self.get_enabled_apps()
         if not enabled:
             return None
+        self.current_app_index = self.current_app_index % len(enabled)
         return enabled[self.current_app_index]
     
     def should_rotate(self) -> bool:

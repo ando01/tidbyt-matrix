@@ -181,18 +181,21 @@ class TidbytDisplay:
                     if current_app:
                         # Refresh app data if needed
                         current_app.refresh()
-                        
+
                         # Get frames for current app
                         frames = current_app.get_cached_frames()
-                        
+
                         if frames:
-                            # Cycle through frames
-                            frame_idx = int((time.time() * 10) % len(frames))
+                            # Cycle through frames at 2fps (slow enough for slides)
+                            frame_idx = int((time.time() * 2) % len(frames))
                             self.display.draw_image(frames[frame_idx])
-                        
+
                         # Check if we should rotate to next app
                         if self.app_manager.should_rotate():
                             self.app_manager.rotate_app()
+                    else:
+                        # No apps enabled — clear display
+                        self.display.clear()
                     
                     # Small sleep to prevent CPU spinning
                     time.sleep(0.1)
