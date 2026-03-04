@@ -1008,24 +1008,13 @@ def save_raw_config():
         import traceback; traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-    # Persist to disk — try main path, then delete-and-recreate, then /tmp fallback
-    config_path = tidbyt_display.config_path
-    fallback_path = '/tmp/tidbyt_config.json'
-    for path in [config_path, fallback_path]:
-        try:
-            if os.path.exists(path):
-                os.remove(path)
-            with open(path, 'w') as f:
-                json.dump(new_config, f, indent=2)
-            if path != config_path:
-                tidbyt_display.config_path = path
-                return jsonify({"success": True, "warning":
-                    f"Config applied! Saved to {path} because {config_path} is not writable. "
-                    f"Fix with: sudo rm {config_path}"})
-            return jsonify({"success": True})
-        except Exception:
-            continue
-    return jsonify({"success": True, "warning": "Config applied but could not be saved to disk"})
+    # Persist to disk atomically — config_path never changes to /tmp
+    ok, err = tidbyt_display._write_config_to_disk(new_config)
+    if not ok:
+        return jsonify({"success": True, "warning":
+            f"Config applied but NOT saved to disk: {err}. "
+            f"Settings will be lost on reboot."})
+    return jsonify({"success": True})
 
 
 # ============================================================================

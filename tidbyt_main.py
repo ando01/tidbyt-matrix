@@ -70,36 +70,61 @@ class TidbytDisplay:
         self.stop()
         sys.exit(0)
     
-    def load_config(self):
-        """Load configuration from file"""
-        if os.path.exists(self.config_path):
-            try:
-                with open(self.config_path, 'r') as f:
-                    config = json.load(f)
-                    self._apply_config(config)
-                print(f"Loaded config from {self.config_path}")
-            except Exception as e:
-                print(f"Error loading config: {e}")
-                self._setup_default_config()
-        else:
-            self._setup_default_config()
-    
-    def _setup_default_config(self):
-        """Setup default apps and configuration"""
-        # Create default config — _apply_config will merge with _default_apps_config()
-        default_config = {
-            "brightness": 100,
-            "apps": {}
-        }
-        
-        # Save default config (best effort)
+    def _write_config_to_disk(self, config: dict):
+        """Atomically write config to the primary config path.
+
+        Uses write-to-temp-then-rename so a failed write never corrupts or
+        deletes the existing file.  config_path is NEVER changed to /tmp.
+        Returns (success: bool, error_msg: str|None).
+        """
+        tmp_path = self.config_path + '.tmp'
         try:
-            with open(self.config_path, 'w') as f:
-                json.dump(default_config, f, indent=2)
+            # Ensure parent directory exists (handles fresh installs)
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            with open(tmp_path, 'w') as f:
+                json.dump(config, f, indent=2)
+            os.replace(tmp_path, self.config_path)
+            print(f"Config saved to {self.config_path}")
+            return True, None
         except Exception as e:
-            print(f"Warning: Could not save config file: {e}")
-        
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+            msg = f"Cannot write to {self.config_path}: {e}"
+            print(f"Warning: {msg}")
+            return False, msg
+
+    def load_config(self):
+        """Load configuration from file.
+
+        Tries the primary path first.  Falls back to /tmp (left by a previous
+        session) and migrates it to the primary path if found there.
+        """
+        candidates = [self.config_path, '/tmp/tidbyt_config.json']
+        for path in candidates:
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path, 'r') as f:
+                    config = json.load(f)
+                self._apply_config(config)
+                print(f"Loaded config from {path}")
+                if path != self.config_path:
+                    print(f"Migrating config from {path} → {self.config_path}")
+                    self._write_config_to_disk(config)
+                return
+            except Exception as e:
+                print(f"Error loading config from {path}: {e}")
+        self._setup_default_config()
+
+    def _setup_default_config(self):
+        """Apply and persist factory defaults."""
+        default_config = {"brightness": 100, "apps": {}}
         self._apply_config(default_config)
+        ok, err = self._write_config_to_disk(self._raw_config)
+        if not ok:
+            print(f"Warning: Could not save default config: {err}")
     
     def _default_apps_config(self) -> dict:
         """Full default apps dict — used to ensure all keys are always present in stored config."""
@@ -377,38 +402,10 @@ class TidbytDisplay:
         return [app.name for app in self.app_manager.apps]
     
     def save_config(self):
-        """Save current configuration"""
-        config = {
-            "brightness": self.display.get_brightness(),
-            "apps": {}
-        }
-        
-        for app in self.app_manager.apps:
-            app_entry = {
-                "enabled": app.is_enabled(),
-                "priority": app.config.priority
-            }
-            if app.config.config:
-                app_entry.update(app.config.config)
-            config["apps"][app.name.lower()] = app_entry
-        
-        fallback = '/tmp/tidbyt_config.json'
-        for path in [self.config_path, fallback]:
-            try:
-                if os.path.exists(path):
-                    os.remove(path)
-                with open(path, 'w') as f:
-                    json.dump(config, f, indent=2)
-                if path != self.config_path:
-                    print(f"Config saved to fallback {path} ({self.config_path} not writable)")
-                    self.config_path = path
-                else:
-                    print(f"Config saved to {path}")
-                break
-            except Exception:
-                continue
-        else:
-            print("Warning: Could not save config to any location")
+        """Save current configuration to disk."""
+        config = dict(self._raw_config)
+        config['brightness'] = self.display.get_brightness()
+        self._write_config_to_disk(config)
 
 
 # ============================================================================
