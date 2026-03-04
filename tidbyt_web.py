@@ -775,7 +775,9 @@ SETTINGS_TEMPLATE = """
         function saveWeather() {
             const zip = document.getElementById('zip-code').value.trim();
             if (!zip) { showToast('Please enter a zip code', 'error'); return; }
-            showToast('Saving...', 'success');
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
             fetch('/api/settings', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -783,15 +785,23 @@ SETTINGS_TEMPLATE = """
             })
             .then(r => r.json())
             .then(d => {
+                btn.disabled = false;
+                btn.textContent = 'Save Weather';
                 if (d.warning) {
                     showToast(d.warning, 'error');
                 } else if (d.location) {
-                    showToast('Weather updated for ' + d.location + '!', 'success');
+                    showToast('Updated for ' + d.location + '! Display refreshing...', 'success');
+                } else if (d.error) {
+                    showToast('Error: ' + d.error, 'error');
                 } else {
-                    showToast('Weather saved!', 'success');
+                    showToast('Saved!', 'success');
                 }
             })
-            .catch(() => showToast('Error saving', 'error'));
+            .catch(err => {
+                btn.disabled = false;
+                btn.textContent = 'Save Weather';
+                showToast('Request failed — check Pi terminal for errors', 'error');
+            });
         }
 
         function saveStocks() {
@@ -997,16 +1007,10 @@ def update_settings():
                     print(f"Settings: after geocode — lat={app_obj.lat}, loc={app_obj.location_name}")
                     if app_obj.lat is not None:
                         response['location'] = app_obj.location_name
-                        try:
-                            new_frames = app_obj.get_frames()
-                            app_obj.cached_frames = new_frames
-                            app_obj.last_refresh = time.time()
-                            print(f"Settings: weather pre-fetched OK ({len(new_frames)} frames)")
-                        except Exception as e:
-                            print(f"Settings: get_frames error: {e}")
-                            import traceback; traceback.print_exc()
-                            app_obj.cached_frames = []
-                            app_obj.last_refresh = 0
+                        # Drop stale cache; display loop will fetch new weather
+                        app_obj.cached_frames = []
+                        app_obj.last_refresh = 0
+                        print(f"Settings: cache cleared, display loop will refresh weather")
                     else:
                         response['warning'] = f"Zip '{new_zip}' not found — try a nearby city name"
             elif app_obj.name == 'Stocks' and 'stocks' in data:
