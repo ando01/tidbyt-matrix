@@ -22,8 +22,8 @@ except ImportError:
 @dataclass
 class MatrixConfig:
     """Configuration for RGB LED matrix"""
-    rows: int = 16
-    cols: int = 32
+    rows: int = 32
+    cols: int = 64
     brightness: int = 100
     gpio_slowdown: int = 4
     
@@ -35,7 +35,6 @@ class MatrixConfig:
         options.brightness = self.brightness
         options.gpio_slowdown = self.gpio_slowdown
         options.hardware_mapping = 'adafruit-hat'
-        options.row_address_type = 1
         options.pwm_bits = 11
         options.pwm_lsb_nanoseconds = 130
         options.led_rgb_sequence = "RGB"

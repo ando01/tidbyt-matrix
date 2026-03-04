@@ -86,7 +86,7 @@ INDEX_TEMPLATE = """
         
         #matrix-display {
             display: grid;
-            grid-template-columns: repeat(32, 1fr);
+            grid-template-columns: repeat(64, 1fr);
             gap: 2px;
             background: #000;
             padding: 8px;
@@ -373,7 +373,7 @@ INDEX_TEMPLATE = """
                 <div class="emulator-frame">
                     <div id="matrix-display"></div>
                 </div>
-                <div class="resolution-text">32 × 16 pixels</div>
+                <div class="resolution-text">64 × 32 pixels</div>
                 <div class="current-app" id="current-app">Loading...</div>
             </div>
         </div>
@@ -415,7 +415,7 @@ INDEX_TEMPLATE = """
             const matrix = document.getElementById('matrix-display');
             matrix.innerHTML = '';
             
-            for (let i = 0; i < 32 * 16; i++) {
+            for (let i = 0; i < 64 * 32; i++) {
                 const pixel = document.createElement('div');
                 pixel.className = 'pixel';
                 pixel.id = `pixel-${i}`;
@@ -425,9 +425,9 @@ INDEX_TEMPLATE = """
         
         // Update pixel with color
         function setPixel(x, y, r, g, b) {
-            if (x < 0 || x >= 32 || y < 0 || y >= 16) return;
-            
-            const index = y * 32 + x;
+            if (x < 0 || x >= 64 || y < 0 || y >= 32) return;
+
+            const index = y * 64 + x;
             const pixel = document.getElementById(`pixel-${index}`);
             
             if (pixel) {
@@ -451,22 +451,22 @@ INDEX_TEMPLATE = """
                         const img = new Image();
                         img.onload = function() {
                             const canvas = document.createElement('canvas');
-                            canvas.width = 32;
-                            canvas.height = 16;
+                            canvas.width = 64;
+                            canvas.height = 32;
                             const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, 32, 16);
-                            
-                            const imageData = ctx.getImageData(0, 0, 32, 16);
+                            ctx.drawImage(img, 0, 0, 64, 32);
+
+                            const imageData = ctx.getImageData(0, 0, 64, 32);
                             const data = imageData.data;
                             
                             // Update each pixel
-                            for (let i = 0; i < 32 * 16; i++) {
+                            for (let i = 0; i < 64 * 32; i++) {
                                 const r = data[i * 4];
                                 const g = data[i * 4 + 1];
                                 const b = data[i * 4 + 2];
                                 
-                                const x = i % 32;
-                                const y = Math.floor(i / 32);
+                                const x = i % 64;
+                                const y = Math.floor(i / 64);
                                 setPixel(x, y, r, g, b);
                             }
                         };
@@ -600,8 +600,8 @@ def get_display():
         return jsonify({
             "frame_data": img_base64,
             "current_app": app_name,
-            "width": 32,
-            "height": 16
+            "width": 64,
+            "height": 32
         })
     
     except Exception as e:
