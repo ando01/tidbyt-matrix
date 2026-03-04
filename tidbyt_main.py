@@ -79,9 +79,12 @@ class TidbytDisplay:
             }
         }
         
-        # Save default config
-        with open(self.config_path, 'w') as f:
-            json.dump(default_config, f, indent=2)
+        # Save default config (best effort)
+        try:
+            with open(self.config_path, 'w') as f:
+                json.dump(default_config, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Could not save config file: {e}")
         
         self._apply_config(default_config)
     
