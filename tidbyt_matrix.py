@@ -41,7 +41,7 @@ class MatrixConfig:
         options.pixel_mapper_config = ""
         options.panel_type = ""
         options.multiplexing = 0
-        options.disable_hardware_pulsing = False
+        options.disable_hardware_pulsing = True
         options.show_refresh_rate = False
         options.limit_refresh_rate_hz = 0
         return options
