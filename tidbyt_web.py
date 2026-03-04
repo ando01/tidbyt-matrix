@@ -947,14 +947,19 @@ def update_settings():
             if new_zip:
                 app_obj.config.config['zip_code'] = new_zip
                 app_obj.zip_code = new_zip
-                app_obj._resolve_location()
-                app_obj.last_refresh = 0  # force refresh
+                # Clear geocoded coords so they are re-resolved with the new zip
+                app_obj.lat = None
+                app_obj.lon = None
+                app_obj.location_name = new_zip
+                app_obj.cached_frames = []   # drop stale frames immediately
+                app_obj.last_refresh = 0     # force refresh on next cycle
         elif app_obj.name == 'Stocks' and 'stocks' in data:
             new_symbols = data['stocks'].get('symbols')
             if new_symbols is not None:
                 app_obj.config.config['symbols'] = new_symbols
                 app_obj.symbols = new_symbols
-                app_obj.last_refresh = 0  # force refresh
+                app_obj.cached_frames = []   # drop stale frames immediately
+                app_obj.last_refresh = 0     # force refresh on next cycle
 
     tidbyt_display.save_config()
     return jsonify({"success": True})

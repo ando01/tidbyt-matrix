@@ -139,7 +139,23 @@ class WeatherApp(MatrixApp):
         self._resolve_location()
 
     def _resolve_location(self):
-        """Convert zip code to lat/lon using Open-Meteo geocoding"""
+        """Convert zip code to lat/lon. Uses zippopotam.us (reliable for US zips) with Open-Meteo fallback."""
+        # Primary: zippopotam.us — purpose-built for US zip codes
+        try:
+            url = f"https://api.zippopotam.us/us/{self.zip_code}"
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                place = data['places'][0]
+                self.lat = float(place['latitude'])
+                self.lon = float(place['longitude'])
+                self.location_name = place['place name']
+                print(f"Weather: resolved {self.zip_code} → {self.location_name} ({self.lat}, {self.lon})")
+                return
+        except Exception:
+            pass
+
+        # Fallback: Open-Meteo geocoding (works better with city names)
         try:
             url = f"https://geocoding-api.open-meteo.com/v1/search?name={self.zip_code}&count=1&country=US&language=en&format=json"
             resp = requests.get(url, timeout=5)
@@ -149,8 +165,12 @@ class WeatherApp(MatrixApp):
                 self.lat = result['latitude']
                 self.lon = result['longitude']
                 self.location_name = result.get('name', self.zip_code)
-        except Exception as e:
-            print(f"Weather: Could not resolve location for {self.zip_code}: {e}")
+                print(f"Weather: resolved {self.zip_code} → {self.location_name} (fallback)")
+                return
+        except Exception:
+            pass
+
+        print(f"Weather: Could not resolve location for '{self.zip_code}'")
 
     def _fetch_weather(self):
         """Fetch current conditions + today's high/low from Open-Meteo"""
