@@ -87,25 +87,27 @@ class ClockApp(MatrixApp):
             now = datetime.now()
             hour = now.strftime("%H")
             minute = now.strftime("%M")
-            second = now.strftime("%S")
-            
-            # Alternate display every second
+
+            # Alternate colon every second
             if (i // 20) % 2 == 0:
                 display_text = f"{hour}:{minute}"
             else:
                 display_text = f"{hour} {minute}"
-            
-            img = Image.new('RGB', (32, 16), (0, 0, 0))
+
+            img = Image.new('RGB', (64, 32), (0, 0, 0))
             draw = ImageDraw.Draw(img)
-            
+
             try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 10)
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 20)
             except:
                 font = ImageFont.load_default()
-            
-            draw.text((4, 4), display_text, fill=(255, 255, 255), font=font)
+
+            bbox = draw.textbbox((0, 0), display_text, font=font)
+            x = (64 - (bbox[2] - bbox[0])) // 2
+            y = (32 - (bbox[3] - bbox[1])) // 2
+            draw.text((x, y), display_text, fill=(255, 255, 255), font=font)
             frames.append(img)
-        
+
         return frames
     
     def needs_refresh(self) -> bool:
@@ -122,33 +124,28 @@ class WeatherApp(MatrixApp):
         self.location = config.config.get('location', 'Boston, MA') if config else 'Boston, MA'
     
     def get_frames(self) -> List[Image.Image]:
-        # For demo, show mock weather
         frames = []
-        
-        # Frame 1: Temperature
-        img = Image.new('RGB', (32, 16), (0, 0, 10))
-        draw = ImageDraw.Draw(img)
-        
+
         try:
-            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 8)
-            data_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 10)
+            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 12)
+            data_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 18)
         except:
             title_font = data_font = ImageFont.load_default()
-        
-        # Draw weather icon (simple representation)
-        draw.text((2, 2), "WEATHER", fill=(255, 200, 0), font=title_font)
-        draw.text((4, 9), "72°F", fill=(100, 200, 255), font=data_font)
-        
-        frames.append(img)
-        
-        # Frame 2: Condition
-        img = Image.new('RGB', (32, 16), (0, 0, 10))
+
+        # Frame 1: Temperature
+        img = Image.new('RGB', (64, 32), (0, 0, 10))
         draw = ImageDraw.Draw(img)
         draw.text((2, 2), "WEATHER", fill=(255, 200, 0), font=title_font)
-        draw.text((2, 9), "Partly Cloudy", fill=(150, 150, 200), font=title_font)
-        
+        draw.text((8, 15), "72°F", fill=(100, 200, 255), font=data_font)
         frames.append(img)
-        
+
+        # Frame 2: Condition
+        img = Image.new('RGB', (64, 32), (0, 0, 10))
+        draw = ImageDraw.Draw(img)
+        draw.text((2, 2), "WEATHER", fill=(255, 200, 0), font=title_font)
+        draw.text((2, 17), "Partly Cloudy", fill=(150, 150, 200), font=title_font)
+        frames.append(img)
+
         return frames
     
     def needs_refresh(self) -> bool:
@@ -175,20 +172,20 @@ class StockApp(MatrixApp):
         for symbol in self.symbols:
             price, change, is_up = stocks.get(symbol, ('0.0', '+0.0%', True))
             color = (100, 255, 100) if is_up else (255, 100, 100)
-            
-            img = Image.new('RGB', (32, 16), (0, 0, 0))
+
+            img = Image.new('RGB', (64, 32), (0, 0, 0))
             draw = ImageDraw.Draw(img)
-            
+
             try:
-                symbol_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 9)
-                price_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 7)
+                symbol_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 16)
+                price_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 12)
             except:
                 symbol_font = price_font = ImageFont.load_default()
-            
+
             draw.text((2, 2), symbol, fill=(255, 255, 255), font=symbol_font)
-            draw.text((2, 9), price, fill=(200, 200, 200), font=price_font)
-            draw.text((18, 9), change, fill=color, font=price_font)
-            
+            draw.text((2, 18), price, fill=(200, 200, 200), font=price_font)
+            draw.text((36, 18), change, fill=color, font=price_font)
+
             frames.append(img)
         
         return frames
@@ -209,18 +206,18 @@ class ArtApp(MatrixApp):
         
         # Generate simple animated pattern
         for frame_num in range(20):
-            img = Image.new('RGB', (32, 16), (0, 0, 0))
+            img = Image.new('RGB', (64, 32), (0, 0, 0))
             draw = ImageDraw.Draw(img)
-            
+
             # Draw animated checkerboard
-            for x in range(0, 32, 4):
-                for y in range(0, 16, 4):
+            for x in range(0, 64, 4):
+                for y in range(0, 32, 4):
                     offset = (frame_num + (x + y) // 8) % 2
                     if offset == 0:
                         draw.rectangle([x, y, x+3, y+3], fill=(255, 100, 150))
                     else:
                         draw.rectangle([x, y, x+3, y+3], fill=(50, 100, 255))
-            
+
             frames.append(img)
         
         return frames
@@ -247,16 +244,16 @@ class NewsHeadlinesApp(MatrixApp):
         
         for headline in headlines:
             # Create scrolling text frames
-            for scroll_pos in range(32, -len(headline)*6, -2):
-                img = Image.new('RGB', (32, 16), (0, 0, 0))
+            for scroll_pos in range(64, -len(headline)*8, -2):
+                img = Image.new('RGB', (64, 32), (0, 0, 0))
                 draw = ImageDraw.Draw(img)
-                
+
                 try:
-                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 5)
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 12)
                 except:
                     font = ImageFont.load_default()
-                
-                draw.text((scroll_pos, 6), headline, fill=(255, 200, 100), font=font)
+
+                draw.text((scroll_pos, 10), headline, fill=(255, 200, 100), font=font)
                 frames.append(img)
         
         return frames
