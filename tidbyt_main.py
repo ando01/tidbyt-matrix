@@ -41,6 +41,9 @@ class TidbytDisplay:
         
         # Lock for thread-safe operations
         self.lock = threading.Lock()
+
+        # Full config dict (including disabled apps) — used by web config editor
+        self._raw_config = {}
         
         # Load configuration
         self.load_config()
@@ -72,20 +75,10 @@ class TidbytDisplay:
     
     def _setup_default_config(self):
         """Setup default apps and configuration"""
-        # Create default config
+        # Create default config — _apply_config will merge with _default_apps_config()
         default_config = {
             "brightness": 100,
-            "apps": {
-                "clock": {"enabled": True, "priority": 10},
-                "weather": {"enabled": True, "priority": 5, "zip_code": "02134"},
-                "stocks": {"enabled": True, "priority": 5, "symbols": ["AAPL", "TSLA"]},
-                "art": {"enabled": True, "priority": 1},
-                "news": {"enabled": False, "priority": 3},
-                "clock_custom": {"enabled": False, "priority": 9, "color_theme": "blue", "format_24h": False},
-                "countdown": {"enabled": False, "priority": 4, "events": [{"name": "Summer", "date": "2026-06-21"}]},
-                "weather_animated": {"enabled": False, "priority": 6, "zip_code": "02134"},
-                "redsox": {"enabled": False, "priority": 7},
-            }
+            "apps": {}
         }
         
         # Save default config (best effort)
@@ -97,14 +90,37 @@ class TidbytDisplay:
         
         self._apply_config(default_config)
     
+    def _default_apps_config(self) -> dict:
+        """Full default apps dict — used to ensure all keys are always present in stored config."""
+        return {
+            "clock":            {"enabled": True,  "priority": 10},
+            "weather":          {"enabled": True,  "priority": 5,  "zip_code": "02134"},
+            "stocks":           {"enabled": True,  "priority": 5,  "symbols": ["AAPL", "TSLA"]},
+            "art":              {"enabled": True,  "priority": 1},
+            "news":             {"enabled": False, "priority": 3},
+            "clock_custom":     {"enabled": False, "priority": 9,  "color_theme": "blue", "format_24h": False},
+            "countdown":        {"enabled": False, "priority": 4,  "events": [{"name": "Summer", "date": "2026-06-21"}]},
+            "weather_animated": {"enabled": False, "priority": 6,  "zip_code": "02134"},
+            "redsox":           {"enabled": False, "priority": 7},
+        }
+
     def _apply_config(self, config: dict):
         """Apply loaded configuration"""
+        # Merge incoming apps with defaults so newly-added apps always appear in the editor
+        merged_apps = self._default_apps_config()
+        merged_apps.update(config.get('apps', {}))
+        merged = dict(config)
+        merged['apps'] = merged_apps
+
+        # Store full config for the web config editor
+        self._raw_config = merged
+
         # Set brightness
-        brightness = config.get('brightness', 100)
+        brightness = merged.get('brightness', 100)
         self.display.set_brightness(brightness)
-        
+
         # Setup apps based on config
-        self._setup_apps(config.get('apps', {}))
+        self._setup_apps(merged_apps)
     
     def _setup_apps(self, apps_config: dict):
         """Setup apps from configuration"""

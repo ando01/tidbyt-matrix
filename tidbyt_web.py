@@ -916,15 +916,12 @@ def config_editor():
 
 @app.route('/api/config/raw', methods=['GET'])
 def get_raw_config():
-    """Return current in-memory config as JSON"""
+    """Return full config (including disabled apps) as JSON"""
     if not tidbyt_display:
         return jsonify({"error": "Display not initialized"}), 500
-    config = {"brightness": tidbyt_display.display.get_brightness(), "apps": {}}
-    for app_obj in tidbyt_display.app_manager.apps:
-        entry = {"enabled": app_obj.is_enabled(), "priority": app_obj.config.priority}
-        if app_obj.config.config:
-            entry.update(app_obj.config.config)
-        config["apps"][app_obj.name.lower()] = entry
+    # Return the stored config which includes all apps (enabled and disabled)
+    config = dict(tidbyt_display._raw_config)
+    config['brightness'] = tidbyt_display.display.get_brightness()
     return jsonify(config)
 
 
