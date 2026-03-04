@@ -15,9 +15,13 @@ import sys
 
 from tidbyt_matrix import MatrixDisplay, MatrixConfig
 from tidbyt_apps import (
-    AppManager, ClockApp, WeatherApp, StockApp, 
+    AppManager, ClockApp, WeatherApp, StockApp,
     ArtApp, NewsHeadlinesApp, AppConfig
 )
+from apps.clock_custom import CustomClockApp
+from apps.countdown_app import CountdownApp
+from apps.weather_animated import WeatherAnimatedApp
+from apps.redsox_app import RedSoxApp
 
 
 class TidbytDisplay:
@@ -77,6 +81,10 @@ class TidbytDisplay:
                 "stocks": {"enabled": True, "priority": 5, "symbols": ["AAPL", "TSLA"]},
                 "art": {"enabled": True, "priority": 1},
                 "news": {"enabled": False, "priority": 3},
+                "clock_custom": {"enabled": False, "priority": 9, "color_theme": "blue", "format_24h": False},
+                "countdown": {"enabled": False, "priority": 4, "events": [{"name": "Summer", "date": "2026-06-21"}]},
+                "weather_animated": {"enabled": False, "priority": 6, "zip_code": "02134"},
+                "redsox": {"enabled": False, "priority": 7},
             }
         }
         
@@ -157,7 +165,56 @@ class TidbytDisplay:
                 refresh_interval=1800
             )
             self.app_manager.add_app(NewsHeadlinesApp(news_cfg))
-        
+
+        # Custom Clock app
+        if apps_config.get('clock_custom', {}).get('enabled', False):
+            cfg = AppConfig(
+                enabled=True,
+                priority=apps_config.get('clock_custom', {}).get('priority', 9),
+                display_duration=12,
+                refresh_interval=10,
+                config={
+                    'color_theme': apps_config.get('clock_custom', {}).get('color_theme', 'blue'),
+                    'format_24h': apps_config.get('clock_custom', {}).get('format_24h', False),
+                }
+            )
+            self.app_manager.add_app(CustomClockApp(cfg))
+
+        # Countdown app
+        if apps_config.get('countdown', {}).get('enabled', False):
+            events = apps_config.get('countdown', {}).get('events', [{'name': 'Summer', 'date': '2026-06-21'}])
+            cfg = AppConfig(
+                enabled=True,
+                priority=apps_config.get('countdown', {}).get('priority', 4),
+                display_duration=max(8, 8 * len(events)),
+                refresh_interval=3600,
+                config={'events': events}
+            )
+            self.app_manager.add_app(CountdownApp(cfg))
+
+        # Animated Weather app
+        if apps_config.get('weather_animated', {}).get('enabled', False):
+            cfg = AppConfig(
+                enabled=True,
+                priority=apps_config.get('weather_animated', {}).get('priority', 6),
+                display_duration=10,
+                refresh_interval=600,
+                config={
+                    'zip_code': apps_config.get('weather_animated', {}).get('zip_code', '02134'),
+                }
+            )
+            self.app_manager.add_app(WeatherAnimatedApp(cfg))
+
+        # Red Sox app
+        if apps_config.get('redsox', {}).get('enabled', False):
+            cfg = AppConfig(
+                enabled=True,
+                priority=apps_config.get('redsox', {}).get('priority', 7),
+                display_duration=9,
+                refresh_interval=300
+            )
+            self.app_manager.add_app(RedSoxApp(cfg))
+
         print(f"Setup {len(self.app_manager.apps)} apps")
     
     def start(self):
