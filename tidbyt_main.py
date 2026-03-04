@@ -49,6 +49,9 @@ class TidbytDisplay:
         # Seconds each frame is displayed (1/fps). 0.5 = 2fps, 1.0 = 1fps
         self.frame_delay = 0.5
 
+        # Display power state — always starts OFF (display stays dark until manually enabled)
+        self.display_enabled = False
+
         # Horizontal scroll transition state
         self._transition_frames = []
         self._transition_idx = 0
@@ -276,8 +279,21 @@ class TidbytDisplay:
 
     def _display_loop(self):
         """Main display loop"""
+        _display_was_on = False
         try:
             while self.is_running:
+                # --- Display powered off ---
+                if not self.display_enabled:
+                    if _display_was_on:
+                        with self.lock:
+                            self.display.clear()
+                        _display_was_on = False
+                        self._transition_frames = []
+                        self._transition_idx = 0
+                    time.sleep(0.1)
+                    continue
+                _display_was_on = True
+
                 with self.lock:
                     # --- Transition playback (runs at 20fps for smooth scroll) ---
                     if self._transition_frames:
@@ -330,6 +346,12 @@ class TidbytDisplay:
             import traceback
             traceback.print_exc()
     
+    def set_display_power(self, on: bool):
+        """Turn the LED matrix on or off without stopping the display thread"""
+        self.display_enabled = on
+        if not on:
+            self.display.clear()
+
     def set_brightness(self, brightness: int):
         """Set display brightness"""
         self.display.set_brightness(brightness)

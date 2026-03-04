@@ -315,6 +315,25 @@ INDEX_TEMPLATE = """
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
         
+        .btn-power-off {
+            background: #28a745;
+            color: white;
+        }
+        .btn-power-off:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        .btn-power-on {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-power-on:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
         .btn-secondary {
             background: #e9ecef;
             color: #333;
@@ -404,6 +423,7 @@ INDEX_TEMPLATE = """
             </div>
             
             <div class="button-group">
+                <button id="power-btn" class="btn-power-off" onclick="togglePower()">⏻ Display On</button>
                 <button class="btn-primary" onclick="saveConfig()">💾 Save Config</button>
                 <button class="btn-secondary" onclick="reloadApps()">🔄 Refresh</button>
                 <button class="btn-secondary" onclick="location.href='/config'">⚙ Config</button>
@@ -482,10 +502,42 @@ INDEX_TEMPLATE = """
                 .catch(error => console.error('Error updating display:', error));
         }
         
+        function loadPowerState() {
+            fetch('/api/display/power')
+                .then(r => r.json())
+                .then(d => updatePowerBtn(d.on))
+                .catch(() => {});
+        }
+
+        function updatePowerBtn(isOn) {
+            const btn = document.getElementById('power-btn');
+            if (isOn) {
+                btn.textContent = '⏻ Display Off';
+                btn.className = 'btn-power-on';
+            } else {
+                btn.textContent = '⏻ Display On';
+                btn.className = 'btn-power-off';
+            }
+        }
+
+        function togglePower() {
+            const btn = document.getElementById('power-btn');
+            const isOn = btn.classList.contains('btn-power-on');
+            fetch('/api/display/power', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({on: !isOn})
+            })
+            .then(r => r.json())
+            .then(d => updatePowerBtn(d.on))
+            .catch(error => console.error('Error:', error));
+        }
+
         // Load apps on page load
         document.addEventListener('DOMContentLoaded', function() {
             initializeMatrix();
             loadApps();
+            loadPowerState();
             
             // Update display every 1000ms
             setInterval(updateDisplay, 1000);
@@ -870,6 +922,17 @@ def set_brightness():
     tidbyt_display.set_brightness(brightness)
     
     return jsonify({"success": True})
+
+
+@app.route('/api/display/power', methods=['GET', 'POST'])
+def display_power():
+    """Get or set display on/off state"""
+    if not tidbyt_display:
+        return jsonify({"error": "Display not initialized"}), 500
+    if request.method == 'POST':
+        data = request.json or {}
+        tidbyt_display.set_display_power(bool(data.get('on', False)))
+    return jsonify({"on": tidbyt_display.display_enabled})
 
 
 @app.route('/api/config', methods=['POST'])
