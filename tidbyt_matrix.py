@@ -34,7 +34,7 @@ class MatrixConfig:
         options.cols = self.cols
         options.brightness = self.brightness
         options.gpio_slowdown = self.gpio_slowdown
-        options.hardware_mapping = 'adafruit-hat-pwm'
+        options.hardware_mapping = 'adafruit-hat'
         options.pwm_bits = 11
         options.pwm_lsb_nanoseconds = 130
         options.led_rgb_sequence = "RGB"
