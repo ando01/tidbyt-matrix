@@ -344,7 +344,8 @@ class RedSoxApp(MatrixApp):
 
     def _draw_next_batters(self, team_abbr: str, team_color: tuple, batters: List[dict]) -> Image.Image:
         """Draw 'NEXT UP' frame with next 3 batters."""
-        fonts = self._load_fonts()
+        # Use PIL bitmap font — renders at ~6px tall, truly small on a 32px matrix
+        font = ImageFont.load_default()
         img = Image.new('RGB', (64, 32), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
@@ -352,12 +353,12 @@ class RedSoxApp(MatrixApp):
         draw.rectangle([0, 0, 3, 31], fill=team_color)
 
         # Header
-        draw.text((5, 0), "NEXT UP", fill=(255, 200, 0), font=fonts['tiny'])
+        draw.text((5, 1), "NEXT UP", fill=(255, 200, 0), font=font)
 
-        # Batter rows
+        # Batter rows (bitmap font is ~8px tall with descenders, use 8px spacing)
         for i, batter in enumerate(batters[:3]):
-            y = 7 + i * 8
-            draw.text((5, y), f"{batter['order']}.{batter['name']}", fill=(255, 255, 255), font=fonts['tiny'])
+            y = 9 + i * 8
+            draw.text((5, y), f"{batter['order']}.{batter['name']}", fill=(255, 255, 255), font=font)
 
         return img
 
