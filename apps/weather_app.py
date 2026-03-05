@@ -108,14 +108,14 @@ class WeatherApp(MatrixApp):
     def _draw_labels(self, draw, temp, font):
         """Day abbreviation bottom-left, temperature bottom-right."""
         day = datetime.now().strftime('%a').upper()
-        draw.text((2, 24), day, fill=(255, 255, 255), font=font)
+        draw.text((2, 22), day, fill=(255, 255, 255), font=font)
 
         temp_str = f"{temp}\u00b0"
         try:
             tw = int(draw.textlength(temp_str, font=font))
         except Exception:
             tw = len(temp_str) * 5
-        draw.text((62 - tw, 24), temp_str, fill=(255, 255, 255), font=font)
+        draw.text((62 - tw, 22), temp_str, fill=(255, 255, 255), font=font)
 
     # -------------------------------------------------------------------------
     # Per-condition animations (20 frames each, except thunderstorm = 12)
@@ -269,17 +269,6 @@ class WeatherApp(MatrixApp):
             frames = self._frames_thunderstorm(temp, font)
         else:
             frames = self._frames_cloudy(temp, font)
-
-        # Brief high/low info slide
-        hi_lo = Image.new('RGB', (64, 32), (0, 0, 12))
-        d = ImageDraw.Draw(hi_lo)
-        condition = self.WMO_CODES.get(code, "Unknown")
-        d.text((2, 3), condition[:14], fill=(160, 200, 255), font=font)
-        d.text((2, 13), f"H:{weather['high']}\u00b0  L:{weather['low']}\u00b0",
-               fill=(255, 200, 80), font=font)
-        d.text((2, 23), f"Humidity {weather['humidity']}%",
-               fill=(120, 160, 220), font=font)
-        frames.extend([hi_lo] * 6)
 
         return frames
 
