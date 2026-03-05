@@ -70,10 +70,10 @@ class CustomClockApp(MatrixApp):
                 draw.text((tw + 3, 0), ampm, fill=dim, font=font_ampm)
 
             # Row 2 — day of week (10px)
-            draw.text((2, 15), day_str, fill=dim, font=font_info)
+            draw.text((2, 10), day_str, fill=dim, font=font_info)
 
             # Row 3 — date (10px)
-            draw.text((2, 24), date_str, fill=dim, font=font_info)
+            draw.text((2, 20), date_str, fill=dim, font=font_info)
 
             frames.append(img)
 
