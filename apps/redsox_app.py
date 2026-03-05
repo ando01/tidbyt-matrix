@@ -62,6 +62,7 @@ class RedSoxApp(MatrixApp):
                 'team': ImageFont.truetype(bold, 10),
                 'score': ImageFont.truetype(bold, 14),
                 'info': ImageFont.truetype(regular, 8),
+                'tiny': ImageFont.truetype(regular, 6),
                 'standings': ImageFont.truetype(regular, 8),
                 'header': ImageFont.truetype(bold, 8),
             }
@@ -233,7 +234,7 @@ class RedSoxApp(MatrixApp):
                     draw.polygon([(52, 17), (49, 21), (55, 21)], fill=(0, 200, 0))
                 else:
                     draw.polygon([(52, 21), (49, 17), (55, 17)], fill=(200, 0, 0))
-                draw.text((57, 16), str(game['inning']), fill=(255, 200, 0), font=fonts['info'])
+                draw.text((57, 15), str(game['inning']), fill=(255, 200, 0), font=fonts['tiny'])
 
                 # Outs at bottom right
                 self._draw_outs(draw, game['outs'], 49, 27)
@@ -307,5 +308,5 @@ class RedSoxApp(MatrixApp):
             return [img] * 12
 
     def needs_refresh(self) -> bool:
-        interval = 60 if self._is_live else 600
+        interval = 10 if self._is_live else 600
         return time.time() - self.last_refresh > interval
