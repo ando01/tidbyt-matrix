@@ -8,6 +8,29 @@ from tidbyt_apps import MatrixApp, AppConfig
 from typing import Optional, List
 
 
+# 3×5 pixel font — each char is 5 rows, each row a 3-bit int (MSB = left pixel)
+# Characters are 3px wide; draw with 1px inter-character gap → 4px advance per char.
+_PIXEL_FONT = {
+    ' ': (0,0,0,0,0),
+    '.': (0,0,0,0,2),    # .../.../.../.../010
+    '-': (0,0,7,0,0),    # .../.../111/.../...
+    "'": (2,2,0,0,0),    # 010/010/.../.../...
+    '0': (7,5,5,5,7), '1': (2,6,2,2,7), '2': (7,1,7,4,7),
+    '3': (7,1,3,1,7), '4': (5,5,7,1,1), '5': (7,4,7,1,7),
+    '6': (7,4,7,5,7), '7': (7,1,2,2,2), '8': (7,5,7,5,7),
+    '9': (7,5,7,1,7),
+    'A': (2,5,7,5,5), 'B': (6,5,6,5,6), 'C': (3,4,4,4,3),
+    'D': (6,5,5,5,6), 'E': (7,4,6,4,7), 'F': (7,4,6,4,4),
+    'G': (3,4,5,5,3), 'H': (5,5,7,5,5), 'I': (7,2,2,2,7),
+    'J': (3,1,1,5,2), 'K': (5,5,6,5,5), 'L': (4,4,4,4,7),
+    'M': (5,7,5,5,5), 'N': (5,5,5,5,5), 'O': (2,5,5,5,2),
+    'P': (6,5,6,4,4), 'Q': (2,5,5,3,1), 'R': (6,5,6,5,5),
+    'S': (3,4,2,1,6), 'T': (7,2,2,2,2), 'U': (5,5,5,5,7),
+    'V': (5,5,5,2,2), 'W': (5,5,5,7,2), 'X': (5,5,2,5,5),
+    'Y': (5,5,2,2,2), 'Z': (7,1,2,4,7),
+}
+
+
 # All 30 MLB teams: id → {abbr, color}
 TEAMS = {
     108: {"abbr": "LAA", "color": (186, 0, 33)},
@@ -343,22 +366,36 @@ class RedSoxApp(MatrixApp):
 
         return [lineup[(start + i) % len(lineup)] for i in range(min(3, len(lineup)))]
 
+    def _draw_pixel_text(self, draw, text: str, x: int, y: int, color: tuple):
+        """Render text using the 3×5 pixel font. Returns x position after last char."""
+        cx = x
+        for ch in text.upper():
+            rows = _PIXEL_FONT.get(ch)
+            if rows is None:
+                cx += 4
+                continue
+            for ri, row in enumerate(rows):
+                for ci in range(3):
+                    if row & (4 >> ci):  # MSB = leftmost pixel
+                        draw.point((cx + ci, y + ri), fill=color)
+            cx += 4  # 3px char + 1px gap
+        return cx
+
     def _draw_next_batters(self, team_abbr: str, team_color: tuple, batters: List[dict]) -> Image.Image:
-        """Draw 'NEXT UP' frame with next 3 batters."""
-        fonts = self._load_fonts()
+        """Draw 'NEXT UP' frame using 3×5 pixel font."""
         img = Image.new('RGB', (64, 32), (0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         # Team color bar
         draw.rectangle([0, 0, 3, 31], fill=team_color)
 
-        # Header
-        draw.text((5, 1), "NEXT UP", fill=(255, 200, 0), font=fonts['micro'])
+        # Header (y=1, 5px tall → ends at y=5)
+        self._draw_pixel_text(draw, "NEXT UP", 5, 1, (255, 200, 0))
 
-        # Batter rows
+        # Batter rows — 5px tall chars, 7px line spacing (y=8,15,22)
         for i, batter in enumerate(batters[:3]):
-            y = 8 + i * 8
-            draw.text((5, y), f"{batter['order']}.{batter['name']}", fill=(255, 255, 255), font=fonts['micro'])
+            y = 8 + i * 7
+            self._draw_pixel_text(draw, f"{batter['order']}.{batter['name']}", 5, y, (255, 255, 255))
 
         return img
 
