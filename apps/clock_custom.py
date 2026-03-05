@@ -67,7 +67,7 @@ class CustomClockApp(MatrixApp):
                 # AM/PM flush against the time digits, same y baseline
                 bbox = draw.textbbox((0, 0), time_str, font=font_time)
                 tw = bbox[2] - bbox[0]
-                draw.text((tw + 3, 1), ampm, fill=dim, font=font_ampm)
+                draw.text((tw + 3, 0), ampm, fill=dim, font=font_ampm)
 
             # Row 2 — day of week (10px)
             draw.text((2, 15), day_str, fill=dim, font=font_info)
