@@ -230,10 +230,10 @@ class RedSoxApp(MatrixApp):
                 # Half-inning triangle below divider: green up = top, red down = bottom
                 is_top = game['inning_half'].lower().startswith('top')
                 if is_top:
-                    draw.polygon([(52, 17), (48, 22), (56, 22)], fill=(0, 200, 0))
+                    draw.polygon([(52, 17), (49, 21), (55, 21)], fill=(0, 200, 0))
                 else:
-                    draw.polygon([(52, 22), (48, 17), (56, 17)], fill=(200, 0, 0))
-                draw.text((58, 17), str(game['inning']), fill=(255, 200, 0), font=fonts['info'])
+                    draw.polygon([(52, 21), (49, 17), (55, 17)], fill=(200, 0, 0))
+                draw.text((57, 16), str(game['inning']), fill=(255, 200, 0), font=fonts['info'])
 
                 # Outs at bottom right
                 self._draw_outs(draw, game['outs'], 49, 27)
