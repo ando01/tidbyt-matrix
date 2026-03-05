@@ -284,7 +284,7 @@ class TidbytDisplay:
             cfg = AppConfig(
                 enabled=True,
                 priority=apps_config.get('redsox', {}).get('priority', 7),
-                display_duration=9,
+                display_duration=12,
                 refresh_interval=300
             )
             self.app_manager.add_app(RedSoxApp(cfg))
