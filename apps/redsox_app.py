@@ -117,7 +117,7 @@ class RedSoxApp(MatrixApp):
             local_hour = (dt.hour - 5) % 24
             ampm = 'PM' if local_hour >= 12 else 'AM'
             display_hour = local_hour % 12 or 12
-            display_time = f"{display_hour}:{dt.strftime('%M')}"
+            display_time = f"{display_hour}:{dt.strftime('%M')}{ampm}"
         except Exception:
             display_time = "TBD"
 
@@ -212,8 +212,9 @@ class RedSoxApp(MatrixApp):
 
         status = game['status']
 
-        if status == 'S':
-            # Scheduled — show game time instead of score
+        # Pre-game states: S=Scheduled, P=Pre-Game, PW=Pregame Warmup, PI=Pregame Incomplete
+        if status in ('S', 'P', 'PW', 'PI'):
+            # Not yet started — show game time instead of score
             draw.text((30, 1), game['game_time'], fill=(200, 200, 200), font=fonts['score'])
         else:
             # Live or Final — show scores
