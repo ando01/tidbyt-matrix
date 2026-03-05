@@ -68,7 +68,7 @@ class RedSoxApp(MatrixApp):
             }
         except Exception:
             default = ImageFont.load_default()
-            return {k: default for k in ('team', 'score', 'info', 'standings', 'header')}
+            return {k: default for k in ('team', 'score', 'info', 'tiny', 'standings', 'header')}
 
     def _fetch_game(self) -> Optional[dict]:
         """Fetch today's Red Sox game from MLB Stats API."""
