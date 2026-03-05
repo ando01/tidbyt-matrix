@@ -220,20 +220,23 @@ class RedSoxApp(MatrixApp):
             # Live or Final — show scores
             away_str = str(game['away_score'])
             home_str = str(game['home_score'])
-            draw.text((34, 0), away_str, fill=(255, 255, 255), font=fonts['score'])
-            draw.text((34, 15), home_str, fill=(255, 255, 255), font=fonts['score'])
+            draw.text((34, 1), away_str, fill=(255, 255, 255), font=fonts['score'])
+            draw.text((34, 16), home_str, fill=(255, 255, 255), font=fonts['score'])
 
             if status == 'I':
-                # Live game — show inning, outs, bases
-                half = "T" if game['inning_half'].lower().startswith('top') else "B"
-                inning_str = f"{half}{game['inning']}"
-                draw.text((50, 1), inning_str, fill=(255, 200, 0), font=fonts['info'])
+                # Bases at top right
+                self._draw_bases(draw, game['runners'], 56, 7)
 
-                # Outs
-                self._draw_outs(draw, game['outs'], 50, 24)
+                # Half-inning triangle below divider: green up = top, red down = bottom
+                is_top = game['inning_half'].lower().startswith('top')
+                if is_top:
+                    draw.polygon([(52, 17), (48, 22), (56, 22)], fill=(0, 200, 0))
+                else:
+                    draw.polygon([(52, 22), (48, 17), (56, 17)], fill=(200, 0, 0))
+                draw.text((58, 17), str(game['inning']), fill=(255, 200, 0), font=fonts['info'])
 
-                # Base runners
-                self._draw_bases(draw, game['runners'], 56, 14)
+                # Outs at bottom right
+                self._draw_outs(draw, game['outs'], 49, 27)
 
             elif status == 'F':
                 # Final
