@@ -42,6 +42,7 @@ class MatrixConfig:
         options.panel_type = ""
         options.multiplexing = 0
         options.disable_hardware_pulsing = True
+        options.drop_privileges = False
         options.show_refresh_rate = False
         options.limit_refresh_rate_hz = 0
         return options
