@@ -65,18 +65,30 @@ class WeatherApp(MatrixApp):
                 f"https://api.open-meteo.com/v1/forecast"
                 f"?latitude={self.lat}&longitude={self.lon}"
                 f"&current=temperature_2m,weather_code,relative_humidity_2m"
-                f"&daily=temperature_2m_max,temperature_2m_min"
-                f"&temperature_unit=fahrenheit&timezone=auto&forecast_days=1"
+                f"&daily=weather_code,temperature_2m_max,temperature_2m_min"
+                f"&temperature_unit=fahrenheit&timezone=auto&forecast_days=4"
             )
             data = requests.get(url, timeout=5).json()
             current = data.get('current', {})
             daily = data.get('daily', {})
+            times = daily.get('time', [])
+            codes = daily.get('weather_code', [])
+            highs = daily.get('temperature_2m_max', [])
+            lows  = daily.get('temperature_2m_min', [])
+            forecast = []
+            for i in range(1, 4):
+                if i < len(times):
+                    forecast.append({
+                        'day': datetime.strptime(times[i], '%Y-%m-%d').strftime('%a').upper(),
+                        'code': codes[i] if i < len(codes) else 0,
+                        'high': round(highs[i]) if i < len(highs) else 0,
+                        'low':  round(lows[i])  if i < len(lows)  else 0,
+                    })
             return {
-                'temp': round(current.get('temperature_2m', 0)),
+                'temp':     round(current.get('temperature_2m', 0)),
                 'humidity': round(current.get('relative_humidity_2m', 0)),
-                'code': current.get('weather_code', 0),
-                'high': round(daily.get('temperature_2m_max', [0])[0]),
-                'low': round(daily.get('temperature_2m_min', [0])[0]),
+                'code':     current.get('weather_code', 0),
+                'forecast': forecast,
             }
         except Exception as e:
             print(f"Weather fetch error: {e}")
@@ -116,6 +128,115 @@ class WeatherApp(MatrixApp):
         except Exception:
             tw = len(temp_str) * 5
         draw.text((62 - tw, 22), temp_str, fill=(255, 255, 255), font=font)
+
+    # -------------------------------------------------------------------------
+    # Forecast helpers
+    # -------------------------------------------------------------------------
+
+    def _draw_mini_icon(self, draw, cx, cy, code):
+        """Draw a small ~10×8px weather icon centered at (cx, cy)."""
+        if code <= 1:
+            # Clear: small sun + diagonal ray dots
+            draw.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(255, 200, 0))
+            for deg in range(0, 360, 45):
+                angle = math.radians(deg)
+                draw.point((cx + int(5 * math.cos(angle)),
+                            cy + int(5 * math.sin(angle))), fill=(255, 220, 50))
+        elif code == 2:
+            # Partly cloudy: tiny sun upper-right + small cloud lower-left
+            draw.ellipse([cx + 1, cy - 4, cx + 5, cy + 0], fill=(255, 200, 0))
+            draw.point((cx + 6, cy - 2), fill=(255, 220, 50))
+            draw.point((cx + 3, cy - 5), fill=(255, 220, 50))
+            draw.ellipse([cx - 6, cy - 1, cx + 3, cy + 4], fill=(190, 195, 210))
+            draw.ellipse([cx - 4, cy - 4, cx,     cy + 1], fill=(190, 195, 210))
+            draw.ellipse([cx - 1, cy - 3, cx + 3, cy + 1], fill=(190, 195, 210))
+        elif code == 3:
+            # Overcast: grey cloud
+            draw.ellipse([cx - 6, cy - 1, cx + 6, cy + 4], fill=(150, 155, 170))
+            draw.ellipse([cx - 4, cy - 4, cx + 0, cy + 1], fill=(150, 155, 170))
+            draw.ellipse([cx + 0, cy - 3, cx + 5, cy + 1], fill=(150, 155, 170))
+        elif code in (45, 48):
+            # Fog: three short horizontal lines
+            for dy in (-2, 0, 2):
+                draw.line([(cx - 5, cy + dy), (cx + 5, cy + dy)],
+                          fill=(130, 130, 145))
+        elif (51 <= code <= 67) or (80 <= code <= 82):
+            # Rain: cloud + 2 drop lines
+            draw.ellipse([cx - 5, cy - 3, cx + 5, cy + 1], fill=(110, 115, 135))
+            draw.ellipse([cx - 3, cy - 6, cx + 1, cy - 1], fill=(110, 115, 135))
+            draw.ellipse([cx + 1, cy - 5, cx + 5, cy - 1], fill=(110, 115, 135))
+            draw.line([(cx - 3, cy + 2), (cx - 4, cy + 5)], fill=(70, 120, 255))
+            draw.line([(cx + 2, cy + 2), (cx + 1, cy + 5)], fill=(70, 120, 255))
+        elif (71 <= code <= 77) or code in (85, 86):
+            # Snow: cloud + dot flakes
+            draw.ellipse([cx - 5, cy - 3, cx + 5, cy + 1], fill=(160, 165, 185))
+            draw.ellipse([cx - 3, cy - 6, cx + 1, cy - 1], fill=(160, 165, 185))
+            draw.ellipse([cx + 1, cy - 5, cx + 5, cy - 1], fill=(160, 165, 185))
+            for sx in (cx - 3, cx, cx + 3):
+                draw.point((sx, cy + 4), fill=(220, 220, 255))
+        elif 95 <= code <= 99:
+            # Storm: cloud + mini bolt
+            draw.ellipse([cx - 5, cy - 3, cx + 5, cy + 1], fill=(70, 70, 90))
+            draw.ellipse([cx - 3, cy - 6, cx + 1, cy - 1], fill=(70, 70, 90))
+            draw.ellipse([cx + 1, cy - 5, cx + 5, cy - 1], fill=(70, 70, 90))
+            draw.line([(cx, cy + 2), (cx - 2, cy + 5)], fill=(255, 255, 60))
+            draw.line([(cx - 2, cy + 5), (cx, cy + 5)], fill=(255, 255, 60))
+            draw.line([(cx, cy + 5), (cx - 2, cy + 8)], fill=(255, 255, 60))
+        else:
+            # Default: grey cloud
+            draw.ellipse([cx - 5, cy - 2, cx + 5, cy + 3], fill=(150, 155, 170))
+            draw.ellipse([cx - 3, cy - 5, cx + 1, cy + 0], fill=(150, 155, 170))
+
+    def _make_forecast_frame(self, forecast, font_day, font_temp):
+        """Build a single 3-day forecast image."""
+        img = Image.new('RGB', (64, 32), (0, 0, 12))
+        draw = ImageDraw.Draw(img)
+
+        col_width = 21
+        col_starts = [1, 22, 43]
+
+        # Subtle column dividers
+        draw.line([(21, 2), (21, 29)], fill=(40, 40, 60))
+        draw.line([(42, 2), (42, 29)], fill=(40, 40, 60))
+
+        for i, day_data in enumerate(forecast[:3]):
+            cx = col_starts[i] + col_width // 2  # column center x
+
+            # Day name (centered)
+            label = day_data['day'][:3]
+            try:
+                lw = int(draw.textlength(label, font=font_day))
+            except Exception:
+                lw = len(label) * 4
+            draw.text((cx - lw // 2, 1), label, fill=(200, 200, 200), font=font_day)
+
+            # Mini icon centered in column
+            self._draw_mini_icon(draw, cx, 14, day_data['code'])
+
+            # High (orange) and Low (cyan) temps
+            hi_str = f"{day_data['high']}\u00b0"
+            lo_str = f"{day_data['low']}\u00b0"
+            try:
+                hw = int(draw.textlength(hi_str, font=font_temp))
+                lw2 = int(draw.textlength(lo_str, font=font_temp))
+            except Exception:
+                hw = len(hi_str) * 4
+                lw2 = len(lo_str) * 4
+            draw.text((cx - hw // 2, 22), hi_str, fill=(255, 160, 60), font=font_temp)
+            draw.text((cx - lw2 // 2, 26), lo_str, fill=(80, 180, 255), font=font_temp)
+
+        return img
+
+    def _scroll_transition(self, frame_a, frame_b, steps=8):
+        """Slide frame_a out to the left while frame_b enters from the right."""
+        frames = []
+        for i in range(1, steps + 1):
+            offset = (64 * i) // steps
+            combined = Image.new('RGB', (64, 32), (0, 0, 0))
+            combined.paste(frame_a, (-offset, 0))
+            combined.paste(frame_b, (64 - offset, 0))
+            frames.append(combined)
+        return frames
 
     # -------------------------------------------------------------------------
     # Per-condition animations (20 frames each, except thunderstorm = 12)
@@ -242,6 +363,11 @@ class WeatherApp(MatrixApp):
                 "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 8)
         except Exception:
             font = ImageFont.load_default()
+        try:
+            font_sm = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 7)
+        except Exception:
+            font_sm = font
 
         weather = self._fetch_weather()
         if not weather:
@@ -254,23 +380,39 @@ class WeatherApp(MatrixApp):
         temp = weather['temp']
 
         if code <= 1:
-            frames = self._frames_clear(temp, font)
+            anim_frames = self._frames_clear(temp, font)
         elif code == 2:
-            frames = self._frames_partly_cloudy(temp, font)
+            anim_frames = self._frames_partly_cloudy(temp, font)
         elif code == 3:
-            frames = self._frames_cloudy(temp, font)
+            anim_frames = self._frames_cloudy(temp, font)
         elif code in (45, 48):
-            frames = self._frames_fog(temp, font)
+            anim_frames = self._frames_fog(temp, font)
         elif (51 <= code <= 67) or (80 <= code <= 82):
-            frames = self._frames_rain(temp, font)
+            anim_frames = self._frames_rain(temp, font)
         elif (71 <= code <= 77) or code in (85, 86):
-            frames = self._frames_snow(temp, font)
+            anim_frames = self._frames_snow(temp, font)
         elif 95 <= code <= 99:
-            frames = self._frames_thunderstorm(temp, font)
+            anim_frames = self._frames_thunderstorm(temp, font)
         else:
-            frames = self._frames_cloudy(temp, font)
+            anim_frames = self._frames_cloudy(temp, font)
 
-        return frames
+        # Pad/trim animated section to exactly 20 frames
+        while len(anim_frames) < 20:
+            anim_frames.append(anim_frames[-1])
+        anim_frames = anim_frames[:20]
+
+        # Build 3-day forecast if data is available
+        forecast = weather.get('forecast', [])
+        if not forecast:
+            return anim_frames
+
+        forecast_img = self._make_forecast_frame(forecast, font_sm, font_sm)
+        forecast_frames = [forecast_img] * 20
+
+        # Smooth horizontal scroll transition between sections
+        transition = self._scroll_transition(anim_frames[-1], forecast_frames[0], steps=8)
+
+        return anim_frames + transition + forecast_frames
 
     def needs_refresh(self) -> bool:
         return time.time() - self.last_refresh > 600
