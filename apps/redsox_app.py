@@ -90,6 +90,7 @@ class RedSoxApp(MatrixApp):
             return None
 
         game = dates[0]['games'][0]
+        game_pk = game.get('gamePk', 0)
         status_code = game.get('status', {}).get('codedGameState', 'S')
         home = game.get('teams', {}).get('home', {})
         away = game.get('teams', {}).get('away', {})
@@ -102,8 +103,10 @@ class RedSoxApp(MatrixApp):
         linescore = game.get('linescore', {})
         inning = linescore.get('currentInning', 0)
         inning_half = linescore.get('inningHalf', '')
+        inning_state = linescore.get('inningState', '')
         outs = linescore.get('outs', 0) or 0
         offense = linescore.get('offense', {})
+        batter_id = offense.get('batter', {}).get('id', 0)
 
         runners = {
             'first': 'first' in offense,
@@ -124,14 +127,17 @@ class RedSoxApp(MatrixApp):
 
         return {
             'status': status_code,
+            'game_pk': game_pk,
             'away_id': away_id,
             'home_id': home_id,
             'away_score': away_score,
             'home_score': home_score,
             'inning': inning,
             'inning_half': inning_half,
+            'inning_state': inning_state,
             'outs': outs,
             'runners': runners,
+            'batter_id': batter_id,
             'game_time': display_time,
         }
 
@@ -289,12 +295,91 @@ class RedSoxApp(MatrixApp):
 
         return frames
 
+    def _fetch_batting_order(self, game_pk: int, batting_team_id: int, batter_id: int) -> List[dict]:
+        """Fetch next 3 batters in lineup from boxscore API."""
+        url = f"https://statsapi.mlb.com/api/v1/game/{game_pk}/boxscore"
+        try:
+            resp = requests.get(url, timeout=8)
+            data = resp.json()
+        except Exception as e:
+            print(f"RedSox boxscore error: {e}")
+            return []
+
+        teams = data.get('teams', {})
+        home_id = teams.get('home', {}).get('team', {}).get('id', 0)
+        side = 'home' if home_id == batting_team_id else 'away'
+        team_data = teams.get(side, {})
+        batter_ids = team_data.get('batters', [])
+        players = team_data.get('players', {})
+
+        # Build lineup sorted by battingOrder, keeping last sub per slot
+        slot_map = {}
+        for pid in batter_ids:
+            pdata = players.get(f"ID{pid}", {})
+            bo_str = pdata.get('battingOrder', '')
+            if not bo_str:
+                continue
+            bo = int(bo_str)
+            slot = bo // 100
+            sub = bo % 100
+            existing = slot_map.get(slot)
+            if existing is None or sub > existing['sub']:
+                full_name = pdata.get('person', {}).get('fullName', '')
+                last_name = full_name.split()[-1][:9] if full_name else '???'
+                slot_map[slot] = {'id': pid, 'order': slot, 'sub': sub, 'name': last_name}
+
+        lineup = [slot_map[k] for k in sorted(slot_map.keys())]
+        if not lineup:
+            return []
+
+        # Find start index: one after current batter (or 0 if none)
+        start = 0
+        if batter_id:
+            for i, b in enumerate(lineup):
+                if b['id'] == batter_id:
+                    start = (i + 1) % len(lineup)
+                    break
+
+        return [lineup[(start + i) % len(lineup)] for i in range(min(3, len(lineup)))]
+
+    def _draw_next_batters(self, team_abbr: str, team_color: tuple, batters: List[dict]) -> Image.Image:
+        """Draw 'NEXT UP' frame with next 3 batters."""
+        fonts = self._load_fonts()
+        img = Image.new('RGB', (64, 32), (0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        # Team color bar
+        draw.rectangle([0, 0, 3, 31], fill=team_color)
+
+        # Header
+        draw.text((5, 0), "NEXT UP", fill=(255, 200, 0), font=fonts['header'])
+
+        # Batter rows
+        for i, batter in enumerate(batters[:3]):
+            y = 9 + i * 8
+            draw.text((5, y), f"{batter['order']}.{batter['name']}", fill=(255, 255, 255), font=fonts['standings'])
+
+        return img
+
     def get_frames(self) -> List[Image.Image]:
         game = self._fetch_game()
         if game:
             self._is_live = (game['status'] == 'I')
             img = self._draw_scoreboard(game)
-            return [img] * 12
+            frames = [img] * 12
+
+            # Between innings: show next 3 batters for the team about to hit
+            if game['status'] == 'I' and game['inning_state'].lower() in ('middle', 'end'):
+                is_middle = game['inning_state'].lower() == 'middle'
+                # Middle = home bats next (bottom starting); End = away bats next (top starting)
+                next_batting_id = game['home_id'] if is_middle else game['away_id']
+                batting_info = TEAMS.get(next_batting_id, {"abbr": "???", "color": (128, 128, 128)})
+                batters = self._fetch_batting_order(game['game_pk'], next_batting_id, game['batter_id'])
+                if batters:
+                    next_img = self._draw_next_batters(batting_info['abbr'], batting_info['color'], batters)
+                    frames.extend([next_img] * 18)
+
+            return frames
         else:
             self._is_live = False
             standings = self._fetch_standings()
