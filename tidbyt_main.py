@@ -16,12 +16,12 @@ from PIL import Image
 
 from tidbyt_matrix import MatrixDisplay, MatrixConfig
 from tidbyt_apps import (
-    AppManager, ClockApp, WeatherApp, StockApp,
+    AppManager, ClockApp, StockApp,
     ArtApp, NewsHeadlinesApp, AppConfig
 )
 from apps.clock_custom import CustomClockApp
 from apps.countdown_app import CountdownApp
-from apps.weather_animated import WeatherAnimatedApp
+from apps.weather_app import WeatherApp
 from apps.redsox_app import RedSoxApp
 
 
@@ -154,7 +154,6 @@ class TidbytDisplay:
             "news":             {"enabled": False, "priority": 3},
             "clock_custom":     {"enabled": False, "priority": 9,  "color_theme": "blue", "format_24h": False},
             "countdown":        {"enabled": False, "priority": 4,  "events": [{"name": "Summer", "date": "2026-06-21"}]},
-            "weather_animated": {"enabled": False, "priority": 6,  "zip_code": "02134"},
             "redsox":           {"enabled": False, "priority": 7},
         }
 
@@ -265,19 +264,6 @@ class TidbytDisplay:
                 config={'events': events}
             )
             self.app_manager.add_app(CountdownApp(cfg))
-
-        # Animated Weather app
-        if apps_config.get('weather_animated', {}).get('enabled', False):
-            cfg = AppConfig(
-                enabled=True,
-                priority=apps_config.get('weather_animated', {}).get('priority', 6),
-                display_duration=10,
-                refresh_interval=600,
-                config={
-                    'zip_code': apps_config.get('weather_animated', {}).get('zip_code', '02134'),
-                }
-            )
-            self.app_manager.add_app(WeatherAnimatedApp(cfg))
 
         # Red Sox app
         if apps_config.get('redsox', {}).get('enabled', False):
