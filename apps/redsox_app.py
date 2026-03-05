@@ -352,12 +352,12 @@ class RedSoxApp(MatrixApp):
         draw.rectangle([0, 0, 3, 31], fill=team_color)
 
         # Header
-        draw.text((5, 0), "NEXT UP", fill=(255, 200, 0), font=fonts['header'])
+        draw.text((5, 0), "NEXT UP", fill=(255, 200, 0), font=fonts['tiny'])
 
         # Batter rows
         for i, batter in enumerate(batters[:3]):
-            y = 9 + i * 8
-            draw.text((5, y), f"{batter['order']}.{batter['name']}", fill=(255, 255, 255), font=fonts['standings'])
+            y = 7 + i * 8
+            draw.text((5, y), f"{batter['order']}.{batter['name']}", fill=(255, 255, 255), font=fonts['tiny'])
 
         return img
 
