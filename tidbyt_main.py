@@ -322,9 +322,10 @@ class TidbytDisplay:
 
     def _display_loop(self):
         """Main display loop"""
+        import traceback
         _display_was_on = False
-        try:
-            while self.is_running:
+        while self.is_running:
+            try:
                 # --- Display powered off ---
                 if not self.display_enabled:
                     if _display_was_on:
@@ -383,11 +384,11 @@ class TidbytDisplay:
 
                     # Small sleep to prevent CPU spinning
                     time.sleep(0.1)
-        
-        except Exception as e:
-            print(f"Error in display loop: {e}")
-            import traceback
-            traceback.print_exc()
+
+            except Exception as e:
+                print(f"Error in display loop: {e}")
+                traceback.print_exc()
+                time.sleep(1)  # Brief pause before continuing
     
     def set_display_power(self, on: bool):
         """Turn the LED matrix on or off without stopping the display thread"""
