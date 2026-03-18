@@ -2,7 +2,8 @@
 
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont
 from tidbyt_apps import MatrixApp, AppConfig
 from typing import Optional, List
@@ -141,11 +142,11 @@ class RedSoxApp(MatrixApp):
         # Game time for scheduled games
         game_time = game.get('gameDate', '')
         try:
-            dt = datetime.strptime(game_time, "%Y-%m-%dT%H:%M:%SZ")
-            local_hour = (dt.hour - 5) % 24
-            ampm = 'PM' if local_hour >= 12 else 'AM'
-            display_hour = local_hour % 12 or 12
-            display_time = f"{display_hour}:{dt.strftime('%M')}{ampm}"
+            dt_utc = datetime.strptime(game_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            dt_local = dt_utc.astimezone(ZoneInfo("America/New_York"))
+            ampm = 'PM' if dt_local.hour >= 12 else 'AM'
+            display_hour = dt_local.hour % 12 or 12
+            display_time = f"{display_hour}:{dt_local.strftime('%M')}{ampm}"
         except Exception:
             display_time = "TBD"
 
